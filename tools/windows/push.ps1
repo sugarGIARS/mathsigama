@@ -13,14 +13,11 @@ function Test-Port($h, $p) {
   return $ok
 }
 
-Write-Host "[..] 检测 github.com:443"
-if (Test-Port 'github.com' 443) {
-  Write-Host '[ok] 直连可用，正常推送'
-  & git -C $root push $Remote $Branch
-  exit $LASTEXITCODE
-}
+Write-Host '[..] 先试直连'
+& git -C $root push $Remote $Branch
+if ($LASTEXITCODE -eq 0) { Write-Host '[ok] 直连推送完成'; exit 0 }
 
-Write-Host '[!] 直连不通（DNS 解析到的节点被挡），寻找可用节点'
+Write-Host '[!] 直连失败（DNS 解析到的节点被挡），换用可达节点'
 $ip = $null
 foreach ($c in $candidates) {
   if (Test-Port $c 443) { $ip = $c; break }
