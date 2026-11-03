@@ -23,6 +23,8 @@ const out = items.map(q => ({
   keywords: q.keywords || [], analysis: q.analysis || '', tags: q.tags || []
 }));
 
-const target = process.argv[2] || path.join(ROOT, 'server', 'seed', 'builtin-questions.json');
+/* 默认导出到临时目录：内置题以 assets/js/data-*.js 为准，导出件只做临时交换用 */
+const target = process.argv[2] || path.join(require('os').tmpdir(), 'builtin-questions.json');
+fs.mkdirSync(path.dirname(target), { recursive: true });
 fs.writeFileSync(target, JSON.stringify(out, null, 1), 'utf8');
 console.log('导出内置题 ' + out.length + ' 道 → ' + path.relative(ROOT, target));
