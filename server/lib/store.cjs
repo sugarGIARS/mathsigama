@@ -26,12 +26,24 @@ const DEFAULTS = {
   timezone: 'Z'
 };
 
+/* 只把连接池认识的键传下去：配置里还有 autoStart / serviceName 等启动参数 */
+const POOL_KEYS = [
+  'host', 'port', 'user', 'password', 'database', 'socketPath', 'ssl',
+  'waitForConnections', 'connectionLimit', 'queueLimit', 'charset',
+  'dateStrings', 'timezone', 'connectTimeout', 'multipleStatements',
+  'namedPlaceholders', 'supportBigNumbers', 'bigNumberStrings',
+  'enableKeepAlive', 'keepAliveInitialDelay'
+];
+
 /* ---------- 连接与建表 ---------- */
 async function openDb(cfg) {
-  const opt = Object.assign({}, DEFAULTS, cfg || {});
-  ['host', 'user', 'password', 'database'].forEach(k => {
-    if (opt[k] === undefined || opt[k] === null) opt[k] = DEFAULTS[k];
+  const src = cfg || {};
+  const opt = Object.assign({}, DEFAULTS);
+  POOL_KEYS.forEach(k => {
+    if (src[k] !== undefined && src[k] !== null && src[k] !== '') opt[k] = src[k];
   });
+  ['user', 'password'].forEach(k => { if (src[k] !== undefined && src[k] !== null) opt[k] = src[k]; });
+  if (!opt.connectTimeout) opt.connectTimeout = 10000;
   opt.port = parseInt(opt.port, 10) || 3306;
   const pool = mysql.createPool(opt);
   await pool.query('SELECT 1');

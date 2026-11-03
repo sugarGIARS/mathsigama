@@ -7,7 +7,13 @@
     "port": 3306,
     "user": "mathsigma",
     "password": "",
-    "database": "mathsigma"
+    "database": "mathsigma",
+    "autoStart": true,
+    "serviceName": "MySQL84",
+    "mysqldPath": "",
+    "defaultsFile": "",
+    "startTimeout": 45000,
+    "elevate": true
   },
   "deepseek": {
     "apiKey": "",

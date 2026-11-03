@@ -15,7 +15,8 @@ if not errorlevel 1 (
   if not errorlevel 1 (
     echo [i] MySQL84 服务正在运行，无需操作
   ) else (
-    echo [!] MySQL84 服务已停止。请用管理员身份执行： net start MySQL84
+    echo [!] MySQL84 服务已停止。直接运行 start.bat 即可（Node 会请求 UAC 拉起），
+    echo     或用管理员身份执行： net start MySQL84
   )
   exit /b 0
 )

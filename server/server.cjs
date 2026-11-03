@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const store = require(path.join(__dirname, 'lib', 'store.cjs'));
+const mysqlBoot = require(path.join(__dirname, 'lib', 'mysql-boot.cjs'));
 
 const ROOT = store.ROOT;
 const CONFIG_FILE = path.join(__dirname, 'config.json');
@@ -37,6 +38,19 @@ function loadConfig() {
   cfg.mysql.password = process.env.MS_MYSQL_PASSWORD !== undefined ? process.env.MS_MYSQL_PASSWORD
     : (process.env.MYSQL_PASSWORD !== undefined ? process.env.MYSQL_PASSWORD : (cfg.mysql.password || ''));
   cfg.mysql.database = process.env.MS_MYSQL_DB || process.env.MYSQL_DATABASE || cfg.mysql.database || 'mathsigma';
+
+  /* ---------- 随服务自动拉起 MySQL ---------- */
+  cfg.mysql.autoStart = process.env.MS_MYSQL_AUTOSTART !== undefined
+    ? !/^(0|false|no|off)$/i.test(process.env.MS_MYSQL_AUTOSTART)
+    : cfg.mysql.autoStart !== false;
+  cfg.mysql.serviceName = process.env.MS_MYSQL_SERVICE || cfg.mysql.serviceName
+    || (process.platform === 'win32' ? 'MySQL84' : 'mysql');
+  cfg.mysql.mysqldPath = process.env.MS_MYSQL_MYSQLD || cfg.mysql.mysqldPath || '';
+  cfg.mysql.defaultsFile = process.env.MS_MYSQL_DEFAULTS || cfg.mysql.defaultsFile || '';
+  cfg.mysql.startTimeout = parseInt(process.env.MS_MYSQL_TIMEOUT || cfg.mysql.startTimeout || 45000, 10);
+  cfg.mysql.elevate = process.env.MS_MYSQL_ELEVATE !== undefined
+    ? !/^(0|false|no|off)$/i.test(process.env.MS_MYSQL_ELEVATE)
+    : cfg.mysql.elevate !== false;
   return cfg;
 }
 let CONFIG = loadConfig();
@@ -64,7 +78,13 @@ function saveConfig() {
     mysql: {
       host: CONFIG.mysql.host, port: CONFIG.mysql.port,
       user: CONFIG.mysql.user, password: CONFIG.mysql.password,
-      database: CONFIG.mysql.database
+      database: CONFIG.mysql.database,
+      autoStart: CONFIG.mysql.autoStart,
+      serviceName: CONFIG.mysql.serviceName,
+      mysqldPath: CONFIG.mysql.mysqldPath,
+      defaultsFile: CONFIG.mysql.defaultsFile,
+      startTimeout: CONFIG.mysql.startTimeout,
+      elevate: CONFIG.mysql.elevate
     },
     deepseek: { apiKey: CONFIG.deepseek.apiKey, model: CONFIG.deepseek.model, baseURL: CONFIG.deepseek.baseURL, timeout: CONFIG.deepseek.timeout }
   };
@@ -303,15 +323,17 @@ const server = http.createServer(async (req, res) => {
   serveStatic(req, res, parsed.pathname);
 });
 
-/* ---------- 启动：先连 MySQL，再监听端口 ---------- */
+/* ---------- 启动：先确认 MySQL 在跑（必要时拉起），再监听端口 ---------- */
 async function main() {
   try {
+    const boot = await mysqlBoot.ensure(CONFIG.mysql);
+    if (boot.started) console.log('[mysql] 数据库已自动启动（' + (boot.via === 'service' ? '服务' : '后台进程') + '）');
     db = await store.openDb(CONFIG.mysql);
   } catch (e) {
     console.error('────────────────────────────────────────');
     console.error('  [x] 无法连接 MySQL：' + String(e && e.message || e));
     console.error('      目标：' + CONFIG.mysql.user + '@' + CONFIG.mysql.host + ':' + CONFIG.mysql.port + '/' + CONFIG.mysql.database);
-    console.error('      检查：MySQL 是否启动、server/config.json 里的 mysql 配置是否正确');
+    console.error('      检查：server/config.json 里的 mysql 段（autoStart / serviceName / mysqldPath / defaultsFile）');
     console.error('      建库：npm run db:init');
     console.error('────────────────────────────────────────');
     process.exit(1);

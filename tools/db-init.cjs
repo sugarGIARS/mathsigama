@@ -23,6 +23,10 @@ const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'server', 'config.json'),
   };
   const name = cfg.database || 'mathsigma';
 
+  /* 库没起就先拉起来，和 npm start 一样的行为 */
+  const boot = await require(path.join(ROOT, 'server', 'lib', 'mysql-boot.cjs')).ensure(cfg);
+  if (boot.started) console.log('[ok] MySQL 已自动启动（' + boot.via + '）');
+
   const conn = await mysql.createConnection(base);
   try {
     await conn.query('CREATE DATABASE IF NOT EXISTS `' + name + '` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci');
