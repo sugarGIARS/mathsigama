@@ -154,7 +154,7 @@ function renderFooter() {
       </div>
       <div class="footer-bottom">
         <span>© ${new Date().getFullYear()} MathSigma 数理人文课堂 · 仅供教学演示使用</span>
-        <span>题库与记录由服务端 SQLite 数据库承载，学习数据同时缓存在本机浏览器</span>
+        <span>题库与记录由服务端 MySQL 数据库承载，学习数据同时缓存在本机浏览器</span>
       </div>
     </div>
   </footer>`;

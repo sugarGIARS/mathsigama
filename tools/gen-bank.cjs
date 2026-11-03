@@ -611,21 +611,21 @@ try {
 /* ============================================================
    主流程
    ============================================================ */
-function main() {
+async function main() {
   const argv = process.argv.slice(2);
   const get = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 ? argv[i + 1] : d; };
   const target = parseInt(get('target', '40'), 10);
   const seed = parseInt(get('seed', '20261022'), 10);
-  const dbFile = get('db', null);
 
-  const db = store.openDb(dbFile);
-  const kpCount = store.seedKP(db);
+  const db = await store.openFromConfig();
+  const kpCount = await store.seedKP(db);
   const r = rngFrom(seed);
 
   let inserted = 0, dup = 0;
   const perKp = [];
   for (const [kp, makers] of Object.entries(M)) {
-    let have = db.prepare('SELECT COUNT(*) AS n FROM question WHERE kp = ?').get(kp).n;
+    const [[cnt]] = await db.query('SELECT COUNT(*) AS n FROM question WHERE kp = ?', [kp]);
+    const have = Number(cnt.n);
     const need = Math.max(0, target - have);
     let added = 0, attempts = 0;
     while (added < need && attempts < need * 20 + 60) {
@@ -634,7 +634,7 @@ function main() {
       let q;
       try { q = mk.make(r); } catch (e) { continue; }
       if (!q || !q.stem) continue;
-      const res = store.upsert(db, {
+      const res = await store.upsert(db, {
         id: kp + '-gen-' + store.hashQ(q),
         kp, level: q.level || mk.level, type: q.type || mk.type,
         stem: q.stem, options: q.options || [], answer: q.answer || '',
@@ -648,9 +648,10 @@ function main() {
   console.log('知识点入库：' + kpCount + ' 个；目标每题 ' + target + ' 道');
   console.log(perKp.map(x => `${x.kp.padEnd(16)} 原有 ${String(x.have).padStart(2)} + 新增 ${String(x.added).padStart(2)} = ${x.total}`).join('\n'));
   console.log(`\n写入 ${inserted} 道，去重拦截 ${dup} 道。`);
-  const s = store.stats(db);
+  const s = await store.stats(db);
   console.log('题库总量：' + s.total + ' 道（按来源：' + s.bySource.map(x => x.source + ' ' + x.n).join('，') + '）');
+  await db.end();
 }
 
-if (require.main === module) main();
+if (require.main === module) main().catch(e => { console.error('[x] ' + (e && e.stack || e)); process.exit(1); });
 module.exports = { M };

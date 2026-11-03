@@ -1,56 +1,63 @@
 /* ============================================================
-   server/lib/store.cjs · SQLite 存储层（node:sqlite，零依赖）
+   server/lib/store.cjs · MySQL 存储层（mysql2/promise）
    表：kp / question / attempt / user / setting
+   结构见同目录 schema.sql，启动时自动执行
    ============================================================ */
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const crypto = require('crypto');
-const { DatabaseSync } = require('node:sqlite');
+const mysql = require('mysql2/promise');
 
 const ROOT = path.resolve(__dirname, '..', '..');
-const DEFAULT_DB = path.join(ROOT, 'server', 'data', 'math.db');
+const SCHEMA_FILE = path.join(__dirname, 'schema.sql');
 
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS kp (
-  id TEXT PRIMARY KEY, grade TEXT, title TEXT, versions TEXT, tags TEXT, summary TEXT
-);
-CREATE TABLE IF NOT EXISTS question (
-  id TEXT PRIMARY KEY,
-  kp TEXT NOT NULL,
-  level TEXT NOT NULL DEFAULT 'basic',
-  type TEXT NOT NULL DEFAULT 'choice',
-  stem TEXT NOT NULL,
-  options TEXT DEFAULT '[]',
-  answer TEXT DEFAULT '',
-  accept TEXT DEFAULT '[]',
-  keywords TEXT DEFAULT '[]',
-  analysis TEXT DEFAULT '',
-  tags TEXT DEFAULT '[]',
-  source TEXT DEFAULT 'builtin',
-  hash TEXT NOT NULL,
-  created_at TEXT, updated_at TEXT
-);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_question_hash ON question(hash);
-CREATE INDEX IF NOT EXISTS idx_question_kp ON question(kp);
-CREATE INDEX IF NOT EXISTS idx_question_level ON question(level);
-CREATE TABLE IF NOT EXISTS attempt (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  uid TEXT, qid TEXT, kp TEXT, level TEXT, correct INTEGER, sec INTEGER, ts INTEGER
-);
-CREATE TABLE IF NOT EXISTS user (
-  id TEXT PRIMARY KEY, username TEXT, pwd TEXT, grade TEXT, version TEXT,
-  nickname TEXT, school TEXT, created_at TEXT
-);
-CREATE TABLE IF NOT EXISTS setting (key TEXT PRIMARY KEY, value TEXT);
-`;
+const DEFAULTS = {
+  host: '127.0.0.1',
+  port: 3306,
+  user: 'root',
+  password: '',
+  database: 'mathsigma',
+  waitForConnections: true,
+  connectionLimit: 8,
+  queueLimit: 0,
+  charset: 'utf8mb4',
+  dateStrings: true,
+  timezone: 'Z'
+};
 
-function openDb(file) {
-  const f = file || process.env.MS_DB || DEFAULT_DB;
-  fs.mkdirSync(path.dirname(f), { recursive: true });
-  const db = new DatabaseSync(f);
-  db.exec(SCHEMA);
-  return db;
+/* ---------- 连接与建表 ---------- */
+async function openDb(cfg) {
+  const opt = Object.assign({}, DEFAULTS, cfg || {});
+  ['host', 'user', 'password', 'database'].forEach(k => {
+    if (opt[k] === undefined || opt[k] === null) opt[k] = DEFAULTS[k];
+  });
+  opt.port = parseInt(opt.port, 10) || 3306;
+  const pool = mysql.createPool(opt);
+  await pool.query('SELECT 1');
+  await ensureSchema(pool);
+  return pool;
+}
+
+/* 读取 server/config.json 里的 mysql 配置（命令行工具复用） */
+function configOf() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(ROOT, 'server', 'config.json'), 'utf8')).mysql || {};
+  } catch (e) { return {}; }
+}
+
+/* 按项目配置连接，工具脚本用这个 */
+async function openFromConfig() {
+  return openDb(configOf());
+}
+
+async function ensureSchema(db) {
+  const sql = fs.readFileSync(SCHEMA_FILE, 'utf8')
+    .split('\n')
+    .filter(l => !/^\s*--/.test(l))
+    .join('\n');
+  const stmts = sql.split(';').map(s => s.trim()).filter(Boolean);
+  for (const s of stmts) await db.query(s);
 }
 
 /* ---------- 去重哈希 ---------- */
@@ -93,38 +100,51 @@ function loadKP() {
   }
   return out;
 }
-function seedKP(db) {
+
+async function seedKP(db) {
   const rows = loadKP();
-  const st = db.prepare('INSERT OR REPLACE INTO kp (id, grade, title, versions, tags, summary) VALUES (?,?,?,?,?,?)');
-  for (const k of rows) {
-    st.run(k.id, k.grade || '', k.title || '', JSON.stringify(k.versions || []), JSON.stringify(k.tags || []), k.summary || '');
-  }
+  if (!rows.length) return 0;
+  const values = rows.map(k => [
+    String(k.id), k.grade || '', k.title || '',
+    JSON.stringify(k.versions || []), JSON.stringify(k.tags || []), k.summary || ''
+  ]);
+  await db.query(
+    'INSERT INTO kp (id, grade, title, versions, tags, summary) VALUES ? ' +
+    'ON DUPLICATE KEY UPDATE grade=VALUES(grade), title=VALUES(title), ' +
+    'versions=VALUES(versions), tags=VALUES(tags), summary=VALUES(summary)',
+    [values]
+  );
   return rows.length;
 }
 
 /* ---------- 题目写入（自带去重） ---------- */
-function upsert(db, q, opt) {
+async function upsert(db, q, opt) {
   const o = opt || {};
   const hash = q.hash || hashQ(q);
   const now = new Date().toISOString();
-  const exist = db.prepare('SELECT id FROM question WHERE hash = ?').get(hash);
+  const [existRows] = await db.query('SELECT id FROM question WHERE hash = ? LIMIT 1', [hash]);
+  const exist = existRows[0];
   if (exist) {
     if (o.onDup === 'replace') {
-      db.prepare('DELETE FROM question WHERE hash = ?').run(hash);
+      await db.query('DELETE FROM question WHERE hash = ?', [hash]);
     } else {
       return { action: 'duplicate', id: exist.id, hash };
     }
   }
   const id = q.id || ('q-' + hash);
-  const dupId = db.prepare('SELECT id FROM question WHERE id = ?').get(id);
+  const [dupRows] = await db.query('SELECT id FROM question WHERE id = ? LIMIT 1', [id]);
+  const dupId = dupRows[0];
   const finalId = dupId && dupId.id !== (exist && exist.id) ? id + '-' + hash.slice(0, 6) : id;
-  db.prepare(`INSERT INTO question
-    (id, kp, level, type, stem, options, answer, accept, keywords, analysis, tags, source, hash, created_at, updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
-    finalId, q.kp, q.level || 'basic', q.type || 'choice', q.stem || '',
-    JSON.stringify(q.options || []), q.answer || '', JSON.stringify(q.accept || []),
-    JSON.stringify(q.keywords || []), q.analysis || '', JSON.stringify(q.tags || []),
-    q.source || 'import', hash, now, now
+  await db.query(
+    'INSERT INTO question ' +
+    '(id, kp, level, type, stem, options, answer, accept, keywords, analysis, tags, source, hash, created_at, updated_at) ' +
+    'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+    [
+      finalId, q.kp, q.level || 'basic', q.type || 'choice', q.stem || '',
+      JSON.stringify(q.options || []), q.answer || '', JSON.stringify(q.accept || []),
+      JSON.stringify(q.keywords || []), q.analysis || '', JSON.stringify(q.tags || []),
+      q.source || 'import', hash, now, now
+    ]
   );
   return { action: 'inserted', id: finalId, hash };
 }
@@ -139,7 +159,7 @@ function toObj(r) {
   };
 }
 
-function query(db, opt) {
+async function query(db, opt) {
   const o = opt || {};
   const where = [], args = [];
   if (o.kp) { where.push('kp = ?'); args.push(o.kp); }
@@ -148,51 +168,112 @@ function query(db, opt) {
   if (o.source) { where.push('source = ?'); args.push(o.source); }
   if (o.q) { where.push('(stem LIKE ? OR analysis LIKE ? OR id LIKE ?)'); args.push('%' + o.q + '%', '%' + o.q + '%', '%' + o.q + '%'); }
   const w = where.length ? ' WHERE ' + where.join(' AND ') : '';
-  const lim = Math.min(parseInt(o.limit, 10) || 50, 500);
-  const off = parseInt(o.offset, 10) || 0;
-  const rows = db.prepare('SELECT * FROM question' + w + ' ORDER BY kp, level, id LIMIT ? OFFSET ?').all(...args, lim, off);
-  const total = db.prepare('SELECT COUNT(*) AS n FROM question' + w).get(...args).n;
-  return { total, items: rows.map(toObj) };
+  const lim = Math.min(Math.max(parseInt(o.limit, 10) || 50, 1), 100000);
+  const off = Math.max(parseInt(o.offset, 10) || 0, 0);
+  const [rows] = await db.query('SELECT * FROM question' + w + ' ORDER BY kp, level, id LIMIT ' + lim + ' OFFSET ' + off, args);
+  const [cnt] = await db.query('SELECT COUNT(*) AS n FROM question' + w, args);
+  return { total: Number(cnt[0].n), items: rows.map(toObj) };
 }
 
-function stats(db) {
-  const total = db.prepare('SELECT COUNT(*) AS n FROM question').get().n;
-  const byKp = db.prepare('SELECT kp, COUNT(*) AS n FROM question GROUP BY kp ORDER BY n DESC').all();
-  const byLevel = db.prepare('SELECT level, COUNT(*) AS n FROM question GROUP BY level').all();
-  const bySource = db.prepare('SELECT source, COUNT(*) AS n FROM question GROUP BY source').all();
-  const dupGroups = db.prepare('SELECT COUNT(*) AS n FROM (SELECT hash FROM question GROUP BY hash HAVING COUNT(*) > 1)').get().n;
-  const attempts = db.prepare('SELECT COUNT(*) AS n FROM attempt').get().n;
-  const users = db.prepare('SELECT COUNT(*) AS n FROM user').get().n;
-  return { total, byKp, byLevel, bySource, duplicateHashes: dupGroups, attempts, users };
+async function stats(db) {
+  const [[total]] = await db.query('SELECT COUNT(*) AS n FROM question');
+  const [byKp] = await db.query('SELECT kp, COUNT(*) AS n FROM question GROUP BY kp ORDER BY n DESC');
+  const [byLevel] = await db.query('SELECT level, COUNT(*) AS n FROM question GROUP BY level');
+  const [bySource] = await db.query('SELECT source, COUNT(*) AS n FROM question GROUP BY source');
+  const [[dups]] = await db.query('SELECT COUNT(*) AS n FROM (SELECT hash FROM question GROUP BY hash HAVING COUNT(*) > 1) t');
+  const [[attempts]] = await db.query('SELECT COUNT(*) AS n FROM attempt');
+  const [[users]] = await db.query('SELECT COUNT(*) AS n FROM user');
+  return {
+    total: Number(total.n),
+    byKp: byKp.map(r => ({ kp: r.kp, n: Number(r.n) })),
+    byLevel: byLevel.map(r => ({ level: r.level, n: Number(r.n) })),
+    bySource: bySource.map(r => ({ source: r.source, n: Number(r.n) })),
+    duplicateHashes: Number(dups.n),
+    attempts: Number(attempts.n),
+    users: Number(users.n)
+  };
 }
 
 /* ---------- 用户与答题 ---------- */
-function saveAttempt(db, a) {
-  db.prepare('INSERT INTO attempt (uid, qid, kp, level, correct, sec, ts) VALUES (?,?,?,?,?,?,?)')
-    .run(a.uid || '', a.qid || '', a.kp || '', a.level || '', a.correct ? 1 : 0, a.sec || 0, a.ts || Date.now());
+async function saveAttempt(db, a) {
+  await db.query('INSERT INTO attempt (uid, qid, kp, level, correct, sec, ts) VALUES (?,?,?,?,?,?,?)',
+    [a.uid || '', a.qid || '', a.kp || '', a.level || '', a.correct ? 1 : 0, a.sec || 0, a.ts || Date.now()]);
   return true;
 }
-function saveUser(db, u) {
-  db.prepare('INSERT OR REPLACE INTO user (id, username, pwd, grade, version, nickname, school, created_at) VALUES (?,?,?,?,?,?,?,?)')
-    .run(u.id || u.username, u.username, u.pwd || '', u.grade || '', u.version || '', u.nickname || '', u.school || '', u.created_at || new Date().toISOString());
+async function listAttempts(db, limit) {
+  const n = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 5000);
+  const [rows] = await db.query('SELECT * FROM attempt ORDER BY ts DESC LIMIT ' + n);
+  return rows;
+}
+
+async function saveUser(db, u) {
+  await db.query(
+    'INSERT INTO user (id, username, pwd, grade, version, nickname, school, created_at) VALUES (?,?,?,?,?,?,?,?) ' +
+    'ON DUPLICATE KEY UPDATE username=VALUES(username), pwd=VALUES(pwd), grade=VALUES(grade), ' +
+    'version=VALUES(version), nickname=VALUES(nickname), school=VALUES(school)',
+    [u.id || u.username, u.username, u.pwd || '', u.grade || '', u.version || '', u.nickname || '', u.school || '', u.created_at || new Date().toISOString()]
+  );
   return true;
+}
+async function listUsers(db) {
+  const [rows] = await db.query('SELECT id, username, grade, version, nickname, school, created_at FROM user ORDER BY created_at');
+  return rows;
+}
+
+/* ---------- 题目增删改（管理端） ---------- */
+async function deleteQuestion(db, id) {
+  const [r] = await db.query('DELETE FROM question WHERE id = ?', [id]);
+  return r.affectedRows > 0;
+}
+async function getQuestion(db, id) {
+  const [rows] = await db.query('SELECT * FROM question WHERE id = ? LIMIT 1', [id]);
+  return rows[0] || null;
+}
+async function updateQuestion(db, id, m) {
+  const [r] = await db.query(
+    'UPDATE question SET kp=?, level=?, type=?, stem=?, options=?, answer=?, accept=?, keywords=?, analysis=?, tags=?, source=?, hash=?, updated_at=? WHERE id=?',
+    [m.kp, m.level, m.type, m.stem, JSON.stringify(m.options || []), m.answer || '',
+      JSON.stringify(m.accept || []), JSON.stringify(m.keywords || []), m.analysis || '',
+      JSON.stringify(m.tags || []), m.source || 'edited', hashQ(m), new Date().toISOString(), id]
+  );
+  return r.affectedRows > 0;
+}
+
+/* ---------- 知识点列表 ---------- */
+async function listKP(db) {
+  const [rows] = await db.query('SELECT * FROM kp ORDER BY grade, id');
+  return rows.map(r => {
+    const j = s => { try { return JSON.parse(s || '[]'); } catch (e) { return []; } };
+    return { id: r.id, grade: r.grade, title: r.title, versions: j(r.versions), tags: j(r.tags), summary: r.summary };
+  });
+}
+async function countKP(db) {
+  const [[r]] = await db.query('SELECT COUNT(*) AS n FROM kp');
+  return Number(r.n);
 }
 
 /* ---------- 体验账号每日清理 ---------- */
-function purgeDemo(db) {
-  const a = db.prepare("DELETE FROM attempt WHERE lower(COALESCE(uid,'')) = 'demo'").run();
-  const u = db.prepare("DELETE FROM user WHERE lower(COALESCE(username,'')) = 'demo'").run();
-  return { attempts: Number(a.changes || 0), users: Number(u.changes || 0) };
+async function purgeDemo(db) {
+  const [a] = await db.query("DELETE FROM attempt WHERE lower(COALESCE(uid,'')) = 'demo'");
+  const [u] = await db.query("DELETE FROM user WHERE lower(COALESCE(username,'')) = 'demo'");
+  return { attempts: Number(a.affectedRows || 0), users: Number(u.affectedRows || 0) };
 }
 
 /* ---------- 设置 ---------- */
-function getSetting(db, k, d) {
-  const r = db.prepare('SELECT value FROM setting WHERE key = ?').get(k);
-  return r ? r.value : (d === undefined ? null : d);
+async function getSetting(db, k, d) {
+  const [rows] = await db.query('SELECT value FROM setting WHERE skey = ? LIMIT 1', [k]);
+  return rows[0] ? rows[0].value : (d === undefined ? null : d);
 }
-function setSetting(db, k, v) {
-  db.prepare('INSERT OR REPLACE INTO setting (key, value) VALUES (?,?)').run(k, String(v));
+async function setSetting(db, k, v) {
+  await db.query('INSERT INTO setting (skey, value) VALUES (?,?) ON DUPLICATE KEY UPDATE value=VALUES(value)', [k, String(v)]);
   return true;
 }
 
-module.exports = { ROOT, DEFAULT_DB, openDb, hashQ, normText, loadKP, seedKP, upsert, query, stats, toObj, saveAttempt, saveUser, getSetting, setSetting, purgeDemo };
+module.exports = {
+  ROOT, SCHEMA_FILE, openDb, openFromConfig, configOf, ensureSchema,
+  hashQ, normText, loadKP,
+  seedKP, upsert, query, stats, toObj,
+  saveAttempt, listAttempts, saveUser, listUsers,
+  deleteQuestion, getQuestion, updateQuestion,
+  listKP, countKP, getSetting, setSetting, purgeDemo
+};

@@ -72,7 +72,7 @@
       const ids = Store.Record.mistakes().map(m => m.qid);
       return ids.map(getQuestion).filter(Boolean);
     }
-    /* 优先取服务端题库（SQLite，1400+ 道），失败则回退内置题库 */
+    /* 优先取服务端题库（MySQL，2800+ 道），失败则回退内置题库 */
     const remote = await DB.questions({ kp: state.kp, level: state.level === 'all' ? null : state.level, limit: 40 });
     if (remote && remote.length) return remote;
     return questionsOf(state.kp, state.level === 'all' ? null : state.level);

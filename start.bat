@@ -19,9 +19,14 @@ if /i "%~2"=="--lan" set HOST=0.0.0.0
 
 where node >nul 2>nul
 if errorlevel 1 (
-  echo [x] 未检测到 Node.js，请先安装 https://nodejs.org  （需要 22.5+ 以使用内置 SQLite）
+  echo [x] 未检测到 Node.js，请先安装 https://nodejs.org  （需要 18+）
   pause
   exit /b 1
+)
+
+if not exist node_modules\mysql2 (
+  echo [!] 依赖未安装，正在执行 npm install ...
+  call npm install --omit=dev
 )
 
 echo.
@@ -29,6 +34,7 @@ echo   MathSigma
 echo   站点    : http://%HOST%:%PORT%/
 echo   管理端  : http://%HOST%:%PORT%/admin.html
 echo   接口    : http://%HOST%:%PORT%/api/health
+echo   数据库  : MySQL（连接信息见 server\config.json 的 mysql 段）
 echo   停止    : 在本窗口按 Ctrl+C
 echo.
 if "%HOST%"=="0.0.0.0" echo   [!] 已开放局域网访问，请确保防火墙允许该端口

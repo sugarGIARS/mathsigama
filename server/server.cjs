@@ -3,6 +3,7 @@
    · 静态托管（默认端口 8080，--host 0.0.0.0 可局域网访问）
    · REST API：知识点 / 题库 / 答题记录 / 用户 / 导入导出
    · AI 代理：/api/ai/chat 转发 DeepSeek（密钥只在服务端，不下发前端）
+   · 数据库：MySQL 8.0+（mysql2 连接池，表结构见 lib/schema.sql）
    启动：node server/server.cjs --port 8080 [--host 0.0.0.0] [--no-api]
    ============================================================ */
 const http = require('http');
@@ -27,32 +28,44 @@ function loadConfig() {
   cfg.deepseek.model = process.env.DEEPSEEK_MODEL || cfg.deepseek.model || 'deepseek-chat';
   cfg.deepseek.baseURL = process.env.DEEPSEEK_BASE_URL || cfg.deepseek.baseURL || 'https://api.deepseek.com';
   cfg.deepseek.timeout = parseInt(cfg.deepseek.timeout || 45000, 10);
+
+  /* ---------- MySQL 连接（环境变量优先，便于部署时覆盖） ---------- */
+  cfg.mysql = cfg.mysql || {};
+  cfg.mysql.host = process.env.MS_MYSQL_HOST || process.env.MYSQL_HOST || cfg.mysql.host || '127.0.0.1';
+  cfg.mysql.port = parseInt(process.env.MS_MYSQL_PORT || process.env.MYSQL_PORT || cfg.mysql.port || 3306, 10);
+  cfg.mysql.user = process.env.MS_MYSQL_USER || process.env.MYSQL_USER || cfg.mysql.user || 'root';
+  cfg.mysql.password = process.env.MS_MYSQL_PASSWORD !== undefined ? process.env.MS_MYSQL_PASSWORD
+    : (process.env.MYSQL_PASSWORD !== undefined ? process.env.MYSQL_PASSWORD : (cfg.mysql.password || ''));
+  cfg.mysql.database = process.env.MS_MYSQL_DB || process.env.MYSQL_DATABASE || cfg.mysql.database || 'mathsigma';
   return cfg;
 }
 let CONFIG = loadConfig();
 const noApi = argvOf('no-api', false) !== false;
-const db = store.openDb();
-store.seedKP(db);
+let db = null;
 
 /* ---------- 体验账号：每天自动清空学习数据 ---------- */
 function dayKey(d) {
   const t = d || new Date();
   return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
 }
-function autoPurgeDemo() {
+async function autoPurgeDemo() {
   const today = dayKey();
-  if (store.getSetting(db, 'demoPurgeDay', '') === today) return { skipped: true };
-  const r = store.purgeDemo(db);
-  store.setSetting(db, 'demoPurgeDay', today);
+  if (await store.getSetting(db, 'demoPurgeDay', '') === today) return { skipped: true };
+  const r = await store.purgeDemo(db);
+  await store.setSetting(db, 'demoPurgeDay', today);
   if (r.attempts || r.users) console.log('[demo] 体验账号数据已清理：答题 ' + r.attempts + ' 条 / 账号 ' + r.users + ' 个');
   return r;
 }
-autoPurgeDemo();
-setInterval(autoPurgeDemo, 5 * 60 * 1000);
 
 function saveConfig() {
+  /* 注意：必须把 mysql 段一起写回，否则管理端保存 AI 密钥会把数据库配置冲掉 */
   const out = {
     port: CONFIG.port, host: CONFIG.host, adminToken: CONFIG.adminToken,
+    mysql: {
+      host: CONFIG.mysql.host, port: CONFIG.mysql.port,
+      user: CONFIG.mysql.user, password: CONFIG.mysql.password,
+      database: CONFIG.mysql.database
+    },
     deepseek: { apiKey: CONFIG.deepseek.apiKey, model: CONFIG.deepseek.model, baseURL: CONFIG.deepseek.baseURL, timeout: CONFIG.deepseek.timeout }
   };
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(out, null, 2), 'utf8');
@@ -117,79 +130,79 @@ async function handleApi(req, res, url, parsed) {
   const q = parsed.searchParams;
 
   if (p === '/health') {
-    const s = store.stats(db);
+    const s = await store.stats(db);
     return send(res, 200, {
-      ok: true, service: 'MathSigma', version: '1.0',
-      db: { file: path.relative(ROOT, store.DEFAULT_DB), questions: s.total, users: s.users, attempts: s.attempts },
+      ok: true, service: 'MathSigma', version: '1.1',
+      db: {
+        driver: 'mysql', name: CONFIG.mysql.database,
+        host: CONFIG.mysql.host + ':' + CONFIG.mysql.port,
+        questions: s.total, users: s.users, attempts: s.attempts
+      },
       ai: { configured: !!CONFIG.deepseek.apiKey, model: CONFIG.deepseek.model, baseURL: CONFIG.deepseek.baseURL, proxy: true },
       admin: { tokenRequired: !!CONFIG.adminToken }
     });
   }
 
   if (p === '/kp') {
-    const rows = db.prepare('SELECT * FROM kp ORDER BY grade, id').all();
-    return send(res, 200, { items: rows.map(r => ({ id: r.id, grade: r.grade, title: r.title, versions: JSON.parse(r.versions || '[]'), tags: JSON.parse(r.tags || '[]'), summary: r.summary })) });
+    return send(res, 200, { items: await store.listKP(db) });
   }
 
   if (p === '/questions' && req.method === 'GET') {
-    const r = store.query(db, { kp: q.get('kp'), level: q.get('level'), type: q.get('type'), source: q.get('source'), q: q.get('q'), limit: q.get('limit'), offset: q.get('offset') });
+    const r = await store.query(db, { kp: q.get('kp'), level: q.get('level'), type: q.get('type'), source: q.get('source'), q: q.get('q'), limit: q.get('limit'), offset: q.get('offset') });
     return send(res, 200, r);
   }
   if (p === '/questions' && req.method === 'POST') {
     if (!isAdmin(req)) return send(res, 401, { error: '需要管理令牌' });
     const b = await body(req);
     const list = Array.isArray(b) ? b : [b];
-    const out = list.map(x => store.upsert(db, x, { onDup: b.replace ? 'replace' : 'skip' }));
+    const out = [];
+    for (const x of list) out.push(await store.upsert(db, x, { onDup: b.replace ? 'replace' : 'skip' }));
     return send(res, 200, { results: out });
   }
   if (p.startsWith('/questions/') && (req.method === 'PUT' || req.method === 'DELETE')) {
     if (!isAdmin(req)) return send(res, 401, { error: '需要管理令牌' });
     const id = decodeURIComponent(p.slice('/questions/'.length));
     if (req.method === 'DELETE') {
-      db.prepare('DELETE FROM question WHERE id = ?').run(id);
+      await store.deleteQuestion(db, id);
       return send(res, 200, { ok: true, id });
     }
     const b = await body(req);
-    const cur = db.prepare('SELECT * FROM question WHERE id = ?').get(id);
+    const cur = await store.getQuestion(db, id);
     if (!cur) return send(res, 404, { error: '题目不存在' });
     const merged = Object.assign(store.toObj(cur), b);
-    db.prepare(`UPDATE question SET kp=?, level=?, type=?, stem=?, options=?, answer=?, accept=?, keywords=?, analysis=?, tags=?, source=?, hash=?, updated_at=? WHERE id=?`)
-      .run(merged.kp, merged.level, merged.type, merged.stem, JSON.stringify(merged.options || []), merged.answer || '',
-        JSON.stringify(merged.accept || []), JSON.stringify(merged.keywords || []), merged.analysis || '',
-        JSON.stringify(merged.tags || []), merged.source || 'edited', store.hashQ(merged), new Date().toISOString(), id);
+    await store.updateQuestion(db, id, merged);
     return send(res, 200, { ok: true, id });
   }
 
-  if (p === '/stats') return send(res, 200, store.stats(db));
+  if (p === '/stats') return send(res, 200, await store.stats(db));
 
   if (p === '/attempts' && req.method === 'POST') {
     const b = await body(req);
     const list = Array.isArray(b) ? b : [b];
-    list.forEach(a => store.saveAttempt(db, a));
+    for (const a of list) await store.saveAttempt(db, a);
     return send(res, 200, { ok: true, n: list.length });
   }
   if (p === '/attempts' && req.method === 'GET') {
-    const rows = db.prepare('SELECT * FROM attempt ORDER BY ts DESC LIMIT ?').all(parseInt(q.get('limit') || '50', 10));
-    return send(res, 200, { items: rows });
+    return send(res, 200, { items: await store.listAttempts(db, q.get('limit') || 50) });
   }
 
   if (p === '/demo/reset' && req.method === 'POST') {
-    const r = store.purgeDemo(db);
-    store.setSetting(db, 'demoPurgeDay', dayKey());
+    const r = await store.purgeDemo(db);
+    await store.setSetting(db, 'demoPurgeDay', dayKey());
     return send(res, 200, { ok: true, day: dayKey(), attempts: r.attempts, users: r.users });
   }
   if (p === '/demo/status') {
-    return send(res, 200, { day: dayKey(), lastPurge: store.getSetting(db, 'demoPurgeDay', ''), rule: '体验账号（demo）学习数据每天 00:00 自动清空' });
+    return send(res, 200, { day: dayKey(), lastPurge: await store.getSetting(db, 'demoPurgeDay', ''), rule: '体验账号（demo）学习数据每天 00:00 自动清空' });
   }
 
   if (p === '/users' && req.method === 'POST') {
     const b = await body(req);
-    store.saveUser(db, b);
+    await store.saveUser(db, b);
     return send(res, 200, { ok: true, id: b.id || b.username });
   }
   if (p === '/users' && req.method === 'GET') {
     if (!isAdmin(req)) return send(res, 401, { error: '需要管理令牌' });
-    return send(res, 200, { items: db.prepare('SELECT id, username, grade, version, nickname, school, created_at FROM user').all() });
+    return send(res, 200, { items: await store.listUsers(db) });
   }
 
   if (p === '/import' && req.method === 'POST') {
@@ -197,11 +210,16 @@ async function handleApi(req, res, url, parsed) {
     const b = await body(req);
     const list = Array.isArray(b) ? b : (b.questions || []);
     let ins = 0, dup = 0;
-    list.forEach(x => { if (x && x.stem && x.kp) { const r = store.upsert(db, Object.assign({ source: b.source || 'import' }, x), { onDup: 'replace' }); r.action === 'inserted' ? ins++ : dup++; } });
+    for (const x of list) {
+      if (x && x.stem && x.kp) {
+        const r = await store.upsert(db, Object.assign({ source: b.source || 'import' }, x), { onDup: 'replace' });
+        r.action === 'inserted' ? ins++ : dup++;
+      }
+    }
     return send(res, 200, { inserted: ins, duplicate: dup });
   }
   if (p === '/export') {
-    const r = store.query(db, { kp: q.get('kp'), limit: 100000 });
+    const r = await store.query(db, { kp: q.get('kp'), limit: 100000 });
     if (q.get('format') === 'csv') {
       const esc = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
       const head = 'id,kp,level,type,stem,options,answer,accept,keywords,analysis,tags,source\n';
@@ -285,15 +303,42 @@ const server = http.createServer(async (req, res) => {
   serveStatic(req, res, parsed.pathname);
 });
 
-server.listen(CONFIG.port, CONFIG.host, () => {
-  const s = store.stats(db);
-  console.log('────────────────────────────────────────');
-  console.log('  MathSigma 服务已启动');
-  console.log('  地址：http://' + (CONFIG.host === '0.0.0.0' ? 'localhost' : CONFIG.host) + ':' + CONFIG.port);
-  console.log('  题库：' + s.total + ' 道  知识点：' + db.prepare('SELECT COUNT(*) AS n FROM kp').get().n + ' 个');
-  console.log('  AI  ：' + (CONFIG.deepseek.apiKey ? 'DeepSeek 已接入（' + CONFIG.deepseek.model + '）' : '未配置密钥，走本地兜底'));
-  console.log('  管理端：/admin.html' + (CONFIG.adminToken ? '（需管理令牌）' : '（本地开发模式，无需令牌）'));
-  console.log('────────────────────────────────────────');
+/* ---------- 启动：先连 MySQL，再监听端口 ---------- */
+async function main() {
+  try {
+    db = await store.openDb(CONFIG.mysql);
+  } catch (e) {
+    console.error('────────────────────────────────────────');
+    console.error('  [x] 无法连接 MySQL：' + String(e && e.message || e));
+    console.error('      目标：' + CONFIG.mysql.user + '@' + CONFIG.mysql.host + ':' + CONFIG.mysql.port + '/' + CONFIG.mysql.database);
+    console.error('      检查：MySQL 是否启动、server/config.json 里的 mysql 配置是否正确');
+    console.error('      建库：npm run db:init');
+    console.error('────────────────────────────────────────');
+    process.exit(1);
+  }
+
+  const seeded = await store.seedKP(db);
+  if (seeded) console.log('[seed] 知识点已同步：' + seeded + ' 个');
+  await autoPurgeDemo();
+  setInterval(() => { autoPurgeDemo().catch(e => console.error('[demo] 清理失败：' + e.message)); }, 5 * 60 * 1000);
+
+  server.listen(CONFIG.port, CONFIG.host, async () => {
+    const s = await store.stats(db);
+    const kpCount = await store.countKP(db);
+    console.log('────────────────────────────────────────');
+    console.log('  MathSigma 服务已启动');
+    console.log('  地址：http://' + (CONFIG.host === '0.0.0.0' ? 'localhost' : CONFIG.host) + ':' + CONFIG.port);
+    console.log('  数据库：MySQL ' + CONFIG.mysql.user + '@' + CONFIG.mysql.host + ':' + CONFIG.mysql.port + '/' + CONFIG.mysql.database);
+    console.log('  题库：' + s.total + ' 道  知识点：' + kpCount + ' 个');
+    console.log('  AI  ：' + (CONFIG.deepseek.apiKey ? 'DeepSeek 已接入（' + CONFIG.deepseek.model + '）' : '未配置密钥，走本地兜底'));
+    console.log('  管理端：/admin.html' + (CONFIG.adminToken ? '（需管理令牌）' : '（本地开发模式，无需令牌）'));
+    console.log('────────────────────────────────────────');
+  });
+}
+
+main().catch(e => {
+  console.error('[fatal] ' + String(e && e.stack || e));
+  process.exit(1);
 });
 
 module.exports = { server, CONFIG };

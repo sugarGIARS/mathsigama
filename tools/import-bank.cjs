@@ -29,7 +29,7 @@ function parseCSV(text) {
   });
 }
 
-function main() {
+async function main() {
   const argv = process.argv.slice(2);
   const file = argv.find(a => !a.startsWith('--'));
   if (!file) { console.log('用法：node tools/import-bank.cjs <file.json|file.csv> [--source web] [--replace]'); process.exit(1); }
@@ -38,13 +38,13 @@ function main() {
 
   const text = fs.readFileSync(file, 'utf8');
   const list = file.toLowerCase().endsWith('.csv') ? parseCSV(text) : parseJSON(text);
-  const db = store.openDb();
-  store.seedKP(db);
+  const db = await store.openFromConfig();
+  await store.seedKP(db);
 
   let ins = 0, dup = 0, bad = 0;
   for (const q of list) {
     if (!q.stem || !q.kp) { bad++; continue; }
-    const res = store.upsert(db, {
+    const res = await store.upsert(db, {
       id: q.id || null, kp: q.kp, level: q.level || 'basic', type: q.type || 'choice',
       stem: q.stem, options: q.options || [], answer: q.answer || '', accept: q.accept || [],
       keywords: q.keywords || [], analysis: q.analysis || '', tags: q.tags || [],
@@ -53,8 +53,9 @@ function main() {
     if (res.action === 'inserted') ins++; else dup++;
   }
   console.log(`导入完成：新增 ${ins}，重复 ${dup}，无效 ${bad}`);
-  const s = store.stats(db);
+  const s = await store.stats(db);
   console.log('题库总量：' + s.total + '（' + s.bySource.map(x => x.source + ' ' + x.n).join('，') + '）');
+  await db.end();
 }
 
-if (require.main === module) main();
+if (require.main === module) main().catch(e => { console.error('[x] ' + (e && e.stack || e)); process.exit(1); });
