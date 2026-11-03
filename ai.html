@@ -1,0 +1,99 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 答疑 · MathSigma</title>
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/main.css">
+<!-- 悬停即预渲染：点到时目标页已在后台渲染完成，切换近乎瞬间 -->
+<script type="speculationrules">
+{
+  "prerender": [{
+    "where": { "and": [
+      { "href_matches": "/*.html*" },
+      { "not": { "href_matches": "/admin.html*" } }
+    ] },
+    "eagerness": "moderate"
+  }]
+}
+</script>
+</head>
+<body>
+
+<div id="nav-root"></div>
+
+<header class="page-head">
+  <div class="container">
+    <div class="crumb"><a href="index.html" data-link>首页</a><span>/</span><span>AI 答疑</span><span>/</span><span>引导式讲解</span></div>
+    <h1>AI 数学老师 · 引导式答疑</h1>
+    <p>把不会的题发给我：可以打字，也可以上传题目图片。我不会直接甩答案 —— 先给提示，再给步骤，最后才给完整解析，你可以一直追问到弄懂为止。</p>
+  </div>
+</header>
+
+<section class="section" style="padding-top:36px">
+  <div class="container">
+    <div class="ai-layout">
+      <div class="card chat-window">
+        <div class="chat-log" id="chat-log"></div>
+        <div class="chat-input">
+          <div class="img-preview" id="img-preview"></div>
+          <div class="row">
+            <label class="icon-btn" style="cursor:pointer" title="上传题目图片">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="18" height="18"><rect x="3" y="6" width="18" height="14" rx="1.5"/><circle cx="12" cy="13" r="3.4"/><path d="M8 6l1.4-2h5.2L16 6"/></svg>
+              <input type="file" accept="image/*" id="file-img" style="display:none">
+            </label>
+            <textarea class="textarea" id="chat-text" placeholder="输入你不会的题目，例如：已知一次函数 y=kx+b 过点 (1,3) 和 (-2,-3)，求解析式" style="min-height:46px"></textarea>
+            <button class="btn btn-primary" id="btn-send">发送</button>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-3);flex-wrap:wrap;gap:8px">
+            <span>Enter 发送，Shift + Enter 换行 · 支持上传图片</span>
+            <span id="clear-chat" style="cursor:pointer;color:var(--gold-500)">清空对话</span>
+          </div>
+        </div>
+      </div>
+
+      <aside>
+        <div class="card score-panel">
+          <div class="side-title">AI 怎么用</div>
+          <div class="note-box gold" style="margin-top:0"><b class="h">引导式三步</b>
+            <div class="step-list">
+              <div><i>01</i>先给提示，让你自己先想</div>
+              <div><i>02</i>再给关键步骤，帮你搭梯子</div>
+              <div><i>03</i>最后才给完整答案与易错点</div>
+            </div>
+          </div>
+          <div class="side-title">快捷提问</div>
+          <div class="quick-list" id="quick-list"></div>
+          <div class="divider"></div>
+          <div class="side-title">推荐同类题</div>
+          <div class="quick-list" id="reco-list"></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<div id="footer-root"></div>
+
+<script src="assets/vendor/katex/katex.min.js" defer></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js" defer></script>
+<script src="assets/js/data-core.js"></script>
+<script src="assets/js/data-kp1.js"></script>
+<script src="assets/js/data-kp2.js"></script>
+<script src="assets/js/data-kp3.js"></script>
+<script src="assets/js/data-q1.js"></script>
+<script src="assets/js/data-q2.js"></script>
+<script src="assets/js/data-q3.js"></script>
+<script src="assets/js/data-q4.js"></script>
+<script src="assets/js/data-q5.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/db.js"></script>
+<script src="assets/js/transition.js"></script>
+<script src="assets/js/motion.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/ai.js"></script>
+</body>
+</html>

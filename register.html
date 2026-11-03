@@ -1,0 +1,127 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>注册 · MathSigma</title>
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/main.css">
+<!-- 悬停即预渲染：点到时目标页已在后台渲染完成，切换近乎瞬间 -->
+<script type="speculationrules">
+{
+  "prerender": [{
+    "where": { "and": [
+      { "href_matches": "/*.html*" },
+      { "not": { "href_matches": "/admin.html*" } }
+    ] },
+    "eagerness": "moderate"
+  }]
+}
+</script>
+</head>
+<body>
+
+<div class="auth-wrap">
+  <aside class="auth-side">
+    <div class="container-inner">
+      <div class="brand" style="margin-bottom:26px">
+        <span class="brand-mark"><b>Σ</b></span>
+        <span class="brand-text"><span class="brand-name" style="color:#fff">MathSigma</span><span class="brand-sub">数理 · 人文课堂</span></span>
+      </div>
+      <h2>开启你的数学进阶之路</h2>
+      <p>注册只需 3 步：填写账号 → 选择年级与教材版本 → 开始学习。</p>
+      <div class="auth-quote">「玉不琢，不成器；人不学，不知道。」<br>—— 《礼记 · 学记》</div>
+      <ul class="bullets">
+        <li><b>①</b><span>用户名 + 密码，越简单越好</span></li>
+        <li><b>②</b><span>选择年级，如"高一"</span></li>
+        <li><b>③</b><span>选择教材版本，如"人教版"</span></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="auth-main">
+    <div class="auth-box">
+      <h2>注册新账号</h2>
+      <p class="sub">已经有账号？<a href="login.html" data-link style="color:var(--gold-500);font-weight:600">直接登录</a></p>
+
+      <form id="reg-form" novalidate>
+        <div class="field" id="f-user">
+          <label for="r-user">用户名</label>
+          <div class="wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+            <input class="input" id="r-user" placeholder="字母 / 数字 / 中文，2-16 位">
+          </div>
+          <div class="err">用户名需 2-16 位</div>
+        </div>
+
+        <div class="field" id="f-phone">
+          <label for="r-phone">手机号（选填，也可用于登录）</label>
+          <div class="wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></svg>
+            <input class="input" id="r-phone" placeholder="11 位手机号，可留空">
+          </div>
+          <div class="err">手机号格式不正确</div>
+        </div>
+
+        <div class="field" id="f-pwd">
+          <label for="r-pwd">密码</label>
+          <div class="wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <input class="input" id="r-pwd" type="password" placeholder="至少 6 位">
+            <button type="button" class="pwd-toggle" id="r-eye">显示</button>
+          </div>
+          <div class="err">密码至少 6 位</div>
+        </div>
+
+        <div class="field" id="f-pwd2">
+          <label for="r-pwd2">确认密码</label>
+          <div class="wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <input class="input" id="r-pwd2" type="password" placeholder="再输入一次密码">
+          </div>
+          <div class="err">两次输入的密码不一致</div>
+        </div>
+
+        <div class="field">
+          <label>我的年级</label>
+          <div class="grade-picker" id="r-grades"></div>
+          <div class="err" id="e-grade" style="display:none">请选择年级</div>
+        </div>
+
+        <div class="field">
+          <label for="r-version">教材版本</label>
+          <select class="select" id="r-version"></select>
+        </div>
+
+        <label class="switch" style="margin-bottom:18px"><input type="checkbox" id="r-agree"><i></i><span>我已阅读并同意《学习数据保存在本机浏览器》的说明</span></label>
+
+        <button class="btn btn-primary" type="submit" style="width:100%">注册并进入学习</button>
+      </form>
+
+      <div class="auth-alt">注册即创建本地学习档案，无需手机号验证</div>
+    </div>
+  </main>
+</div>
+
+<div id="footer-root" style="display:none"></div>
+
+<script src="assets/vendor/katex/katex.min.js" defer></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js" defer></script>
+<script src="assets/js/data-core.js"></script>
+<script src="assets/js/data-kp1.js"></script>
+<script src="assets/js/data-kp2.js"></script>
+<script src="assets/js/data-kp3.js"></script>
+<script src="assets/js/data-q1.js"></script>
+<script src="assets/js/data-q2.js"></script>
+<script src="assets/js/data-q3.js"></script>
+<script src="assets/js/data-q4.js"></script>
+<script src="assets/js/data-q5.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/transition.js"></script>
+<script src="assets/js/motion.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/auth.js"></script>
+</body>
+</html>

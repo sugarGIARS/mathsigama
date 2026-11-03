@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MathSigma · 中学数学学习平台</title>
+<meta name="description" content="MathSigma：中学数学电子讲义、分层题库、AI 引导式答疑与学习反馈。">
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/main.css">
+<!-- 悬停即预渲染：点到时目标页已在后台渲染完成，切换近乎瞬间 -->
+<script type="speculationrules">
+{
+  "prerender": [{
+    "where": { "and": [
+      { "href_matches": "/*.html*" },
+      { "not": { "href_matches": "/admin.html*" } }
+    ] },
+    "eagerness": "moderate"
+  }]
+}
+</script>
+</head>
+<body>
+
+<div id="nav-root"></div>
+
+<main>
+<!-- ============ 首屏 ============ -->
+<section class="home-hero">
+  <div class="m-ring"><svg id="m-ring-svg" viewBox="0 0 800 800" aria-hidden="true"></svg></div>
+  <div class="container hh-grid">
+    <div class="hh-left">
+      <span class="num">MathSigma · 中学数学</span>
+      <h1 class="hh-title">数学，<br><span class="accent">一步一步</span>学明白</h1>
+      <p class="hh-lead">按年级与教材版本整理的电子讲义，配套分层习题与 AI 引导式答疑；每一次作答都被记录，错题、薄弱点与下一步该学什么，一目了然。</p>
+
+      <div class="search-box">
+        <svg class="si" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
+        <input id="search-input" type="text" placeholder="搜索知识点，如：二次函数 / 勾股定理" autocomplete="off">
+        <div class="search-drop" id="search-drop"></div>
+      </div>
+
+      <div class="hh-actions">
+        <a class="btn btn-primary btn-lg" href="learn.html" data-link><span class="shine"></span>开始学习</a>
+        <a class="btn btn-ghost btn-lg" href="practice.html" data-link>做练习</a>
+        <a class="btn btn-ghost btn-lg" href="ai.html" data-link>问 Σ 老师</a>
+      </div>
+
+      <div class="hh-stats">
+        <div class="hh-stat"><b id="stat-kp">—</b><span>知识点讲义</span></div>
+        <div class="hh-stat"><b id="stat-q">—</b><span>配套习题</span></div>
+        <div class="hh-stat"><b>04</b><span>步学习闭环</span></div>
+      </div>
+    </div>
+
+    <aside class="hh-right">
+      <div class="panel">
+        <div class="panel-head">
+          <b>今日学习计划</b>
+          <span class="label" id="plan-date">—</span>
+        </div>
+        <div class="panel-body" id="plan-body"></div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ============ 学习路径 ============ -->
+<section class="section">
+  <div class="container">
+    <div class="section-head reveal" style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div>
+        <span class="num">01 / Path</span>
+        <h2 class="section-title" style="margin-top:12px">学 · 练 · 问 · 评</h2>
+      </div>
+      <p class="section-desc" style="margin:0;max-width:440px">先看讲义，再做分层练习；卡住了问 Σ 老师，最后看反馈决定下一步。</p>
+    </div>
+    <div class="path-grid">
+      <div class="path-card reveal" style="--d:0ms">
+        <span class="pn">01 / 学</span>
+        <h4>看讲义</h4>
+        <p>概念、例题、公式、易错点，按年级与教材版本分类。</p>
+        <a href="learn.html" data-link>进入课程学习 →</a>
+      </div>
+      <div class="path-card reveal" style="--d:80ms">
+        <span class="pn">02 / 练</span>
+        <h4>做练习</h4>
+        <p>基础、提高、挑战三级难度，落笔即判，附逐题解析。</p>
+        <a href="practice.html" data-link>开始习题练习 →</a>
+      </div>
+      <div class="path-card reveal" style="--d:160ms">
+        <span class="pn">03 / 问</span>
+        <h4>问老师</h4>
+        <p>先提示、再步骤、后答案，引导你自己想出解法。</p>
+        <a href="ai.html" data-link>去问 Σ 老师 →</a>
+      </div>
+      <div class="path-card reveal" style="--d:240ms">
+        <span class="pn">04 / 评</span>
+        <h4>看反馈</h4>
+        <p>知识点正确率、错题本、薄弱点与阶段学习报告。</p>
+        <a href="profile.html" data-link>查看学习反馈 →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 课程目录 ============ -->
+<section class="section" style="background:color-mix(in srgb, var(--card-2) 74%, transparent);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="container">
+    <div class="section-head reveal" style="margin-bottom:24px">
+      <span class="num">02 / Catalog</span>
+      <h2 class="section-title" style="margin-top:12px">课程目录</h2>
+      <p class="section-desc">选择年级与教材版本，查看对应知识点；点击卡片直接进入讲义。</p>
+    </div>
+    <div class="catalog-bar reveal">
+      <div class="grade-tabs" id="catalog-tabs"></div>
+      <div class="ver-chips" id="catalog-vers"></div>
+    </div>
+    <div class="kp-grid reveal" id="catalog-grid"></div>
+  </div>
+</section>
+
+<!-- ============ 为你推荐 ============ -->
+<section class="section">
+  <div class="container">
+    <div class="section-head reveal" style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div>
+        <span class="num">03 / For You</span>
+        <h2 class="section-title" style="margin-top:12px">接下来练这些</h2>
+      </div>
+      <a class="btn btn-ghost btn-sm" href="practice.html" data-link>全部习题 →</a>
+    </div>
+    <div class="reco-grid reveal" id="reco-grid"></div>
+  </div>
+</section>
+
+<!-- ============ 数学文化（次要板块） ============ -->
+<section class="section" style="padding-top:0">
+  <div class="container">
+    <div class="culture-strip reveal">
+      <figure class="cs-figure">
+        <svg viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" aria-label="赵爽弦图：四个直角三角形围成方田">
+          <rect x="10" y="10" width="300" height="300" fill="none" stroke="rgba(255,255,255,.34)"/>
+          <path d="M10 10H210L10 110Z" fill="rgba(255,255,255,.09)" stroke="rgba(255,255,255,.38)"/>
+          <path d="M310 10V210L210 10Z" fill="rgba(255,255,255,.09)" stroke="rgba(255,255,255,.38)"/>
+          <path d="M310 310H110L310 210Z" fill="rgba(255,255,255,.09)" stroke="rgba(255,255,255,.38)"/>
+          <path d="M10 310V110L110 310Z" fill="rgba(255,255,255,.09)" stroke="rgba(255,255,255,.38)"/>
+          <path d="M10 110L210 10L310 210L110 310Z" fill="rgba(51,85,230,.24)" stroke="#8aa0ff" stroke-width="1.6"/>
+          <text x="104" y="27" fill="rgba(255,255,255,.65)" font-size="12" font-family="IBM Plex Mono, monospace">a</text>
+          <text x="23" y="68" fill="rgba(255,255,255,.65)" font-size="12" font-family="IBM Plex Mono, monospace">b</text>
+          <text x="88" y="68" fill="#b3c0ff" font-size="12" font-family="IBM Plex Mono, monospace">c</text>
+        </svg>
+      </figure>
+      <div>
+        <p class="cs-lead">一张弦图，两种看面积的方式。</p>
+        <p>公元三世纪，赵爽以四个全等直角三角形围出方田：中间是 \((a-b)^2\)，外围是 \(c^2\)，两边同算，勾股定理自然浮出。数与形，在这张图里互为注解。</p>
+        <cite>赵爽《周髀算经注》· 约公元 3 世纪</cite>
+      </div>
+      <div class="cs-formula">
+        <b>a² + b² = c²</b>
+        <cite>Pythagorean theorem</cite>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<div id="footer-root"></div>
+
+<script src="assets/vendor/katex/katex.min.js" defer></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js" defer></script>
+<script src="assets/js/data-core.js"></script>
+<script src="assets/js/data-kp1.js"></script>
+<script src="assets/js/data-kp2.js"></script>
+<script src="assets/js/data-kp3.js"></script>
+<script src="assets/js/data-q1.js"></script>
+<script src="assets/js/data-q2.js"></script>
+<script src="assets/js/data-q3.js"></script>
+<script src="assets/js/data-q4.js"></script>
+<script src="assets/js/data-q5.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/db.js"></script>
+<script src="assets/js/transition.js"></script>
+<script src="assets/js/motion.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/index.js"></script>
+</body>
+</html>

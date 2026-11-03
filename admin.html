@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>管理端 · MathSigma</title>
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/main.css">
+<style>
+  .adm-grid { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 26px; align-items: start; }
+  .adm-nav { position: sticky; top: calc(var(--nav-h) + 16px); display: flex; flex-direction: column; gap: 4px; }
+  .adm-nav button {
+    text-align: left; padding: 9px 13px; border-radius: var(--r-s); border: 1px solid transparent;
+    background: transparent; color: var(--text-2); font-size: 14px; cursor: pointer; transition: var(--t);
+  }
+  .adm-nav button:hover { background: var(--hover); color: var(--text); }
+  .adm-nav button.on { background: var(--brand-soft); color: var(--brand); font-weight: 600; }
+  .adm-pane { display: none; }
+  .adm-pane.on { display: block; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 22px; }
+  .stat-box { border: 1px solid var(--line); border-radius: var(--r-m); padding: 16px 18px; background: var(--card); }
+  .stat-box b { display: block; font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+  .stat-box span { font-size: 12.5px; color: var(--text-3); }
+  table.adm { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.adm th, table.adm td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  table.adm th { font-size: 12px; color: var(--text-3); font-weight: 500; background: var(--card-2); }
+  table.adm tr:hover td { background: var(--card-2); }
+  .adm-actions { display: flex; gap: 6px; white-space: nowrap; }
+  .bar-row { display: grid; grid-template-columns: 130px minmax(0, 1fr) 46px; gap: 10px; align-items: center; margin-bottom: 7px; font-size: 13px; }
+  .bar-track { height: 8px; border-radius: var(--r-pill); background: var(--card-2); overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--brand); border-radius: var(--r-pill); }
+  .adm-form { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .adm-form label { font-size: 12.5px; color: var(--text-3); display: block; margin-bottom: 5px; }
+  .stem-cell { max-width: 460px; }
+  .stem-cell .txt { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .adm-empty { padding: 30px; text-align: center; color: var(--text-3); font-size: 14px; }
+  @media (max-width: 900px) {
+    .adm-grid { grid-template-columns: 1fr; }
+    .adm-nav { position: static; flex-direction: row; flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<div id="nav-root"></div>
+
+<header class="page-head">
+  <div class="container">
+    <div class="crumb"><a href="index.html" data-link>首页</a><span>/</span><span>管理端</span></div>
+    <h1>题库与平台管理</h1>
+    <p>管理题库（增删改查、导入导出、去重）、查看用户与答题记录，并配置 DeepSeek 接口。</p>
+  </div>
+</header>
+
+<section class="section" style="padding-top:34px">
+  <div class="container">
+    <div class="card" style="padding:14px 18px;margin-bottom:20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <span class="tag" id="adm-backend">后端检测中…</span>
+      <span class="tag" id="adm-ai">AI 检测中…</span>
+      <span style="flex:1"></span>
+      <input class="input" id="adm-token" placeholder="管理令牌（服务端若配置则需要）" style="max-width:280px">
+      <button class="btn btn-ghost btn-sm" id="adm-reload">重新检测</button>
+    </div>
+
+    <div class="adm-grid">
+      <nav class="adm-nav">
+        <button class="on" data-pane="overview">数据概览</button>
+        <button data-pane="bank">题库管理</button>
+        <button data-pane="io">导入 / 导出</button>
+        <button data-pane="ai">AI 接口（DeepSeek）</button>
+        <button data-pane="users">用户与记录</button>
+      </nav>
+
+      <div>
+        <!-- 概览 -->
+        <div class="adm-pane on" id="pane-overview">
+          <div class="stat-grid" id="ov-stats"></div>
+          <div class="card" style="padding:22px">
+            <h3 style="margin-bottom:14px;font-size:16px">各知识点题量</h3>
+            <div id="ov-bars"></div>
+          </div>
+        </div>
+
+        <!-- 题库 -->
+        <div class="adm-pane" id="pane-bank">
+          <div class="card" style="padding:18px;margin-bottom:16px">
+            <div class="adm-form">
+              <div><label>知识点</label><select class="select" id="f-kp"><option value="">全部</option></select></div>
+              <div><label>难度</label><select class="select" id="f-level">
+                <option value="">全部</option><option value="basic">基础</option><option value="advance">进阶</option><option value="challenge">挑战</option></select></div>
+              <div><label>来源</label><select class="select" id="f-source">
+                <option value="">全部</option><option value="web">抓取</option><option value="gen">生成</option><option value="builtin">内置</option><option value="edited">已编辑</option><option value="import">导入</option></select></div>
+              <div><label>关键词</label><input class="input" id="f-q" placeholder="题干 / 解析关键词"></div>
+              <div style="display:flex;align-items:flex-end;gap:8px">
+                <button class="btn btn-primary btn-sm" id="f-search">查询</button>
+                <button class="btn btn-ghost btn-sm" id="f-add">新增题目</button>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="padding:0;overflow:hidden">
+            <div id="bank-table"></div>
+            <div style="padding:12px 16px;display:flex;gap:10px;align-items:center;justify-content:space-between;border-top:1px solid var(--line)">
+              <span style="font-size:13px;color:var(--text-3)" id="bank-count">—</span>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-ghost btn-sm" id="bank-prev">上一页</button>
+                <button class="btn btn-ghost btn-sm" id="bank-next">下一页</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 导入导出 -->
+        <div class="adm-pane" id="pane-io">
+          <div class="card" style="padding:22px;margin-bottom:16px">
+            <h3 style="margin-bottom:8px;font-size:16px">导出</h3>
+            <p style="font-size:13.5px;color:var(--text-2);margin-bottom:14px">导出当前题库为 JSON（可用于备份或迁移），或导出 CSV 用 Excel 编辑后再导入。</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <a class="btn btn-primary btn-sm" href="/api/export" target="_blank">导出全部 JSON</a>
+              <a class="btn btn-ghost btn-sm" href="/api/export?format=csv" target="_blank">导出全部 CSV</a>
+            </div>
+          </div>
+          <div class="card" style="padding:22px">
+            <h3 style="margin-bottom:8px;font-size:16px">导入</h3>
+            <p style="font-size:13.5px;color:var(--text-2);margin-bottom:14px">支持 JSON（<code>{"questions":[...]}</code> 或数组）与 CSV（表头含 kp,stem,options,answer,analysis）。导入时按题干+答案哈希去重。</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+              <input type="file" id="io-file" accept=".json,.csv" class="input" style="max-width:300px">
+              <select class="select" id="io-source" style="max-width:140px">
+                <option value="import">来源：导入</option><option value="web">来源：抓取</option><option value="builtin">来源：内置</option>
+              </select>
+            </div>
+            <textarea class="textarea" id="io-text" rows="8" placeholder='也可直接粘贴，例如：[{"kp":"g1-set","level":"basic","type":"choice","stem":"...","options":["A","B","C","D"],"answer":"A","analysis":"..."}]'></textarea>
+            <div style="margin-top:12px;display:flex;gap:10px">
+              <button class="btn btn-primary btn-sm" id="io-import">导入到数据库</button>
+              <span style="font-size:13px;color:var(--text-3)" id="io-msg"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI -->
+        <div class="adm-pane" id="pane-ai">
+          <div class="card" style="padding:22px;margin-bottom:16px">
+            <h3 style="margin-bottom:6px;font-size:16px">DeepSeek 接口</h3>
+            <p style="font-size:13.5px;color:var(--text-2);margin-bottom:16px">
+              密钥保存在服务端 <code>server/config.json</code>，前端与浏览器不会拿到密钥；答疑页请求 <code>/api/ai/chat</code>，由服务端转发。未配置时自动走本地兜底提示。
+            </p>
+            <div class="adm-form">
+              <div><label>API Key（sk-…）</label><input class="input" id="ai-key" type="password" placeholder="留空表示不修改"></div>
+              <div><label>模型</label><input class="input" id="ai-model" placeholder="deepseek-chat"></div>
+              <div><label>接口地址</label><input class="input" id="ai-base" placeholder="https://api.deepseek.com"></div>
+            </div>
+            <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <button class="btn btn-primary btn-sm" id="ai-save">保存配置</button>
+              <span style="font-size:13px;color:var(--text-3)" id="ai-msg"></span>
+            </div>
+          </div>
+          <div class="card" style="padding:22px">
+            <h3 style="margin-bottom:6px;font-size:16px">连通性测试</h3>
+            <div style="display:flex;gap:10px;margin-bottom:12px">
+              <input class="input" id="ai-test" placeholder="例如：已知函数 f(x)=x^2-2x，求最小值" style="flex:1">
+              <button class="btn btn-ghost btn-sm" id="ai-send">发送测试</button>
+            </div>
+            <div id="ai-out" style="font-size:13.5px;line-height:1.8;white-space:pre-wrap;border:1px solid var(--line);border-radius:var(--r-m);padding:14px;min-height:80px;background:var(--card-2)"></div>
+          </div>
+        </div>
+
+        <!-- 用户 -->
+        <div class="adm-pane" id="pane-users">
+          <div class="card" style="padding:22px;margin-bottom:16px">
+            <h3 style="margin-bottom:6px;font-size:16px">体验账号数据</h3>
+            <p style="font-size:13.5px;color:var(--text-2);margin-bottom:12px">
+              体验账号（demo）的学习数据每天自动清空一次：服务端在每天首次启动或运行中跨天时清理答题记录，浏览器端在当天首次打开页面时重置本机记录，账号本身保留可直接继续体验。
+            </p>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <button class="btn btn-ghost btn-sm" id="demo-reset">立即清空体验数据</button>
+              <span style="font-size:13px;color:var(--text-3)" id="demo-msg"></span>
+            </div>
+          </div>
+          <div class="card" style="padding:22px;margin-bottom:16px">
+            <h3 style="margin-bottom:12px;font-size:16px">用户</h3>
+            <div id="user-table"></div>
+          </div>
+          <div class="card" style="padding:22px">
+            <h3 style="margin-bottom:12px;font-size:16px">最近答题记录</h3>
+            <div id="attempt-table"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="edit-modal" style="display:none;position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.45);padding:24px;overflow:auto">
+  <div class="card" style="max-width:720px;margin:40px auto;padding:24px">
+    <h3 style="margin-bottom:16px;font-size:17px" id="edit-title">编辑题目</h3>
+    <div class="adm-form">
+      <div><label>知识点</label><select class="select" id="e-kp"></select></div>
+      <div><label>难度</label><select class="select" id="e-level"><option value="basic">基础</option><option value="advance">进阶</option><option value="challenge">挑战</option></select></div>
+      <div><label>题型</label><select class="select" id="e-type"><option value="choice">选择题</option><option value="fill">填空题</option><option value="solve">解答题</option></select></div>
+      <div><label>答案（选择题填 A/B/C/D）</label><input class="input" id="e-answer"></div>
+    </div>
+    <div style="margin-top:12px"><label style="font-size:12.5px;color:var(--text-3)">题干（支持 \\( LaTeX \\)）</label><textarea class="textarea" id="e-stem" rows="4"></textarea></div>
+    <div style="margin-top:12px"><label style="font-size:12.5px;color:var(--text-3)">选项（每行一个）／可接受答案（每行一个）</label><textarea class="textarea" id="e-options" rows="3"></textarea></div>
+    <div style="margin-top:12px"><label style="font-size:12.5px;color:var(--text-3)">解析</label><textarea class="textarea" id="e-analysis" rows="4"></textarea></div>
+    <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" id="e-cancel">取消</button>
+      <button class="btn btn-primary btn-sm" id="e-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<div id="footer-root"></div>
+
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js" defer></script>
+<script src="assets/js/data-core.js"></script>
+<script src="assets/js/data-kp1.js"></script>
+<script src="assets/js/data-kp2.js"></script>
+<script src="assets/js/data-kp3.js"></script>
+<script src="assets/js/data-q1.js"></script>
+<script src="assets/js/data-q2.js"></script>
+<script src="assets/js/data-q3.js"></script>
+<script src="assets/js/data-q4.js"></script>
+<script src="assets/js/data-q5.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/db.js"></script>
+<script src="assets/js/transition.js"></script>
+<script src="assets/js/motion.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>课程学习 · MathSigma</title>
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/main.css">
+<!-- 悬停即预渲染：点到时目标页已在后台渲染完成，切换近乎瞬间 -->
+<script type="speculationrules">
+{
+  "prerender": [{
+    "where": { "and": [
+      { "href_matches": "/*.html*" },
+      { "not": { "href_matches": "/admin.html*" } }
+    ] },
+    "eagerness": "moderate"
+  }]
+}
+</script>
+</head>
+<body>
+
+<div id="nav-root"></div>
+
+<header class="page-head">
+  <div class="container">
+    <div class="crumb"><a href="index.html" data-link>首页</a><span>/</span><span>课程学习</span><span>/</span><span id="crumb-kp">知识点资料</span></div>
+    <h1>课程学习 · 电子课本</h1>
+    <p>按年级与教材版本浏览知识点：概念讲解、例题示范、公式总结、易错点提醒，看完即可进入配套练习。</p>
+  </div>
+</header>
+
+<section class="section" style="padding-top:36px">
+  <div class="container">
+    <div class="learn-layout">
+      <!-- 侧栏：筛选与目录 -->
+      <aside class="side-panel">
+        <div class="card side-card">
+          <div class="side-title">年级 <span class="tag tag-gold" id="kp-count">0 个知识点</span></div>
+          <div class="filter-group" id="grade-chips"></div>
+        </div>
+        <div class="card side-card">
+          <div class="side-title">教材版本</div>
+          <div class="filter-group" id="version-chips"></div>
+        </div>
+        <div class="card side-card">
+          <div class="side-title">知识点目录 <span style="font-weight:400">红点为薄弱</span></div>
+          <div class="kp-list" id="kp-list"></div>
+        </div>
+        <div class="card side-card" style="background:var(--ink-900);color:#fff;border-color:var(--ink-900)">
+          <div class="side-title" style="color:rgba(255,255,255,.55)">学习进度</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.55);margin-bottom:6px">已学完知识点</div>
+          <div style="font-family:var(--font-latin);font-weight:300;font-size:32px;color:#fff;line-height:1.2" id="learn-progress">0 / 0</div>
+        </div>
+      </aside>
+
+      <!-- 主区：资料正文 -->
+      <main id="doc-area"></main>
+    </div>
+  </div>
+</section>
+
+<div id="footer-root"></div>
+
+<script src="assets/vendor/katex/katex.min.js" defer></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js" defer></script>
+<script src="assets/js/data-core.js"></script>
+<script src="assets/js/data-kp1.js"></script>
+<script src="assets/js/data-kp2.js"></script>
+<script src="assets/js/data-kp3.js"></script>
+<script src="assets/js/data-q1.js"></script>
+<script src="assets/js/data-q2.js"></script>
+<script src="assets/js/data-q3.js"></script>
+<script src="assets/js/data-q4.js"></script>
+<script src="assets/js/data-q5.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/db.js"></script>
+<script src="assets/js/transition.js"></script>
+<script src="assets/js/motion.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/learn.js"></script>
+</body>
+</html>

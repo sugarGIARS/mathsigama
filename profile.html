@@ -1,0 +1,162 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>个人中心 · MathSigma</title>
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/main.css">
+<!-- 悬停即预渲染：点到时目标页已在后台渲染完成，切换近乎瞬间 -->
+<script type="speculationrules">
+{
+  "prerender": [{
+    "where": { "and": [
+      { "href_matches": "/*.html*" },
+      { "not": { "href_matches": "/admin.html*" } }
+    ] },
+    "eagerness": "moderate"
+  }]
+}
+</script>
+</head>
+<body>
+
+<div id="nav-root"></div>
+
+<header class="page-head">
+  <div class="container">
+    <div class="crumb"><a href="index.html" data-link>首页</a><span>/</span><span>个人中心</span></div>
+    <h1>个人中心 · 我的学习档案</h1>
+    <p>查看学习进度、错题本与学习报告，也可以修改个人资料与密码。</p>
+  </div>
+</header>
+
+<section class="section" style="padding-top:36px">
+  <div class="container">
+    <!-- 资料卡 -->
+    <div class="card" style="padding:26px;margin-bottom:22px">
+      <div class="profile-head">
+        <div class="avatar-lg" id="p-avatar">王</div>
+        <div style="flex:1;min-width:220px">
+          <h2 style="margin-bottom:6px" id="p-name">同学</h2>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <span class="tag tag-blue" id="p-grade">高一</span>
+            <span class="tag tag-gold" id="p-version">人教版</span>
+            <span class="tag" id="p-since">注册时间</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <a class="btn btn-primary" href="learn.html" data-link>继续学习</a>
+          <a class="btn btn-ghost" href="practice.html" data-link>去做练习</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI -->
+    <div class="kpi-grid">
+      <div class="kpi"><span>累计做题</span><b id="k-total">0</b><span class="deco">题</span></div>
+      <div class="kpi"><span>总体正确率</span><b id="k-rate">0%</b><span class="deco">%</span></div>
+      <div class="kpi"><span>未攻克错题</span><b id="k-wrong" style="color:var(--cinnabar)">0</b><span class="deco">✕</span></div>
+      <div class="kpi"><span>已学知识点</span><b id="k-learned">0</b><span class="deco">✓</span></div>
+    </div>
+
+    <div class="profile-grid">
+      <aside>
+        <div class="card" style="padding:22px;margin-bottom:20px">
+          <div class="side-title">知识点掌握度</div>
+          <div id="kp-bars"></div>
+          <div class="note-box red" style="margin-top:14px;font-size:13px">
+            <b class="h">薄弱提醒</b>标红知识点正确率低于 60%，系统会自动多推送同类题。
+          </div>
+        </div>
+
+        <div class="card" style="padding:22px">
+          <div class="side-title">账号设置</div>
+          <div class="field">
+            <label>昵称</label>
+            <input class="input" id="set-nick">
+          </div>
+          <div class="field">
+            <label>学校 / 班级（选填）</label>
+            <input class="input" id="set-school" placeholder="如：实验中学 高一(3)班">
+          </div>
+          <div class="field">
+            <label>年级</label>
+            <select class="select" id="set-grade"></select>
+          </div>
+          <div class="field">
+            <label>教材版本</label>
+            <select class="select" id="set-version"></select>
+          </div>
+          <button class="btn btn-primary btn-sm" style="width:100%" id="btn-save">保存资料</button>
+          <div class="divider"></div>
+          <div class="field">
+            <label>修改密码</label>
+            <input class="input" id="set-old" type="password" placeholder="原密码" style="margin-bottom:8px">
+            <input class="input" id="set-new" type="password" placeholder="新密码（至少 6 位）">
+          </div>
+          <button class="btn btn-ghost btn-sm" style="width:100%" id="btn-pwd">修改密码</button>
+        </div>
+      </aside>
+
+      <main>
+        <!-- 学习报告 -->
+        <div class="card" style="padding:24px;margin-bottom:20px" id="report">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+            <div>
+              <h3 style="margin-bottom:4px">学习报告</h3>
+              <div style="font-size:13px;color:var(--text-2)">系统根据你的答题记录自动生成，告诉你哪里强、哪里弱。</div>
+            </div>
+            <button class="btn btn-gold btn-sm" id="btn-report">生成最新报告</button>
+          </div>
+          <div id="report-box"></div>
+          <div id="report-history" style="margin-top:14px"></div>
+        </div>
+
+        <!-- 错题本 -->
+        <div class="card" style="padding:24px;margin-bottom:20px" id="mistakes">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+            <div>
+              <h3 style="margin-bottom:4px">错题本</h3>
+              <div style="font-size:13px;color:var(--text-2)">做错的题会自动收进来，重新做对后自动移出。</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-ghost btn-sm" id="btn-redo-all">重做全部错题</button>
+            </div>
+          </div>
+          <div id="mistake-box"></div>
+        </div>
+
+        <!-- 智能推荐 -->
+        <div class="card" style="padding:24px">
+          <h3 style="margin-bottom:4px">为你定制的下一步</h3>
+          <div style="font-size:13px;color:var(--text-2);margin-bottom:14px">根据点击频率、停留时长与正确率动态调整（对应"察言观色"策略）。</div>
+          <div id="reco-box"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<div id="footer-root"></div>
+
+<script src="assets/vendor/katex/katex.min.js" defer></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js" defer></script>
+<script src="assets/js/data-core.js"></script>
+<script src="assets/js/data-kp1.js"></script>
+<script src="assets/js/data-kp2.js"></script>
+<script src="assets/js/data-kp3.js"></script>
+<script src="assets/js/data-q1.js"></script>
+<script src="assets/js/data-q2.js"></script>
+<script src="assets/js/data-q3.js"></script>
+<script src="assets/js/data-q4.js"></script>
+<script src="assets/js/data-q5.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/transition.js"></script>
+<script src="assets/js/motion.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/profile.js"></script>
+</body>
+</html>
