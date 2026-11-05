@@ -70,3 +70,17 @@ CREATE TABLE IF NOT EXISTS setting (
   value TEXT,
   PRIMARY KEY (skey)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 自适应核心：每个学生 × 每个知识点的掌握度（0~1）
+-- mastery = 答对数 / (答对数 + 答错数)，随答题动态更新
+CREATE TABLE IF NOT EXISTS mastery_scores (
+  uid        VARCHAR(64)  NOT NULL,
+  kp         VARCHAR(64)  NOT NULL,
+  correct    INT          NOT NULL DEFAULT 0,
+  wrong      INT          NOT NULL DEFAULT 0,
+  mastery    DECIMAL(5,4) NOT NULL DEFAULT 0,
+  updated_at VARCHAR(32)  DEFAULT NULL,
+  PRIMARY KEY (uid, kp),
+  KEY idx_mastery_kp (kp),
+  KEY idx_mastery_mastery (mastery)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

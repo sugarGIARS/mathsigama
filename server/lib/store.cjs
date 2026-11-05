@@ -70,6 +70,121 @@ async function ensureSchema(db) {
     .join('\n');
   const stmts = sql.split(';').map(s => s.trim()).filter(Boolean);
   for (const s of stmts) await db.query(s);
+  await ensureColumns(db);
+}
+
+/* 幂等加列：MySQL 不支持 ADD COLUMN IF NOT EXISTS，用 information_schema 判断 */
+async function ensureColumn(db, table, col, ddl) {
+  const [rows] = await db.query(
+    'SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?',
+    [table, col]
+  );
+  if (!Number(rows[0].n)) await db.query(ddl);
+}
+
+async function ensureColumns(db) {
+  /* 自适应难度值（1-5）：按现有 level 字段回填 basic→2 / advance→4 / challenge→5 */
+  await ensureColumn(db, 'question', 'difficulty',
+    'ALTER TABLE question ADD COLUMN difficulty TINYINT NOT NULL DEFAULT 3 AFTER level');
+  await db.query("UPDATE question SET difficulty = CASE level WHEN 'basic' THEN 2 WHEN 'advance' THEN 4 WHEN 'challenge' THEN 5 ELSE 3 END WHERE difficulty = 3 AND level IN ('basic','advance','challenge')");
+  /* 手机号（注册页收集，可用于登录） */
+  await ensureColumn(db, 'user', 'phone',
+    "ALTER TABLE `user` ADD COLUMN phone VARCHAR(32) NOT NULL DEFAULT '' AFTER nickname");
+  await ensureColumn(db, 'user', 'salt',
+    'ALTER TABLE `user` ADD COLUMN salt VARCHAR(32) NOT NULL DEFAULT \'\' AFTER pwd');
+}
+
+/* ---------- 自适应：掌握度与目标难度 ----------
+   掌握度 mastery = correct / (correct + wrong)，归一化到 [0,1]
+   目标难度 = 1 + mastery × 4 向上取整后再 +1（"略难一点"，太简单无效刷题，太难会挫败） */
+function masteryOf(c, w) {
+  const t = c + w;
+  return t ? c / t : 0;
+}
+function targetDifficulty(mastery) {
+  return Math.min(5, Math.max(1, Math.ceil(1 + mastery * 4) + 1));
+}
+
+async function bumpMastery(db, uid, kp, correct) {
+  if (!uid || !kp) return null;
+  const [rows] = await db.query('SELECT correct, wrong FROM mastery_scores WHERE uid = ? AND kp = ? LIMIT 1', [uid, kp]);
+  const cur = rows[0] || { correct: 0, wrong: 0 };
+  const c = cur.correct + (correct ? 1 : 0);
+  const w = cur.wrong + (correct ? 0 : 1);
+  const m = masteryOf(c, w);
+  await db.query(
+    'INSERT INTO mastery_scores (uid, kp, correct, wrong, mastery, updated_at) VALUES (?,?,?,?,?,?) ' +
+    'ON DUPLICATE KEY UPDATE correct=VALUES(correct), wrong=VALUES(wrong), mastery=VALUES(mastery), updated_at=VALUES(updated_at)',
+    [uid, kp, c, w, m, new Date().toISOString()]
+  );
+  return { uid, kp, correct: c, wrong: w, mastery: m, targetDifficulty: targetDifficulty(m) };
+}
+
+async function listMastery(db, uid) {
+  const [rows] = await db.query('SELECT uid, kp, correct, wrong, mastery, updated_at FROM mastery_scores WHERE uid = ? ORDER BY mastery', [uid]);
+  return rows.map(r => ({
+    uid: r.uid, kp: r.kp, correct: Number(r.correct), wrong: Number(r.wrong),
+    mastery: Number(r.mastery), targetDifficulty: targetDifficulty(Number(r.mastery)), updated_at: r.updated_at
+  }));
+}
+
+/* 自适应选 题：按目标难度取"最接近"的题（目标优先，其次略易，再略难） */
+async function recommend(db, opt) {
+  const o = opt || {};
+  const lim = Math.min(Math.max(parseInt(o.limit, 10) || 8, 1), 50);
+  let mastery = null, target = 3;
+  if (o.uid && o.kp) {
+    const [rows] = await db.query('SELECT mastery FROM mastery_scores WHERE uid = ? AND kp = ? LIMIT 1', [o.uid, o.kp]);
+    mastery = rows[0] ? Number(rows[0].mastery) : 0;
+    target = targetDifficulty(mastery);
+  } else if (o.target) {
+    target = Math.min(5, Math.max(1, parseInt(o.target, 10)));
+  }
+  const [rows] = await db.query(
+    'SELECT * FROM question WHERE kp = ? ORDER BY ABS(difficulty - ?), RAND() LIMIT ?',
+    [o.kp || '', target, lim]
+  );
+  return { kp: o.kp || '', mastery, targetDifficulty: target, items: rows.map(toObj) };
+}
+
+/* ---------- 用户认证（后端登录/注册） ----------
+   密码存 sha256(salt + pwd)，格式 salt$hash，不存明文 */
+function hashPwd(pwd, salt) {
+  return crypto.createHash('sha256').update(salt + String(pwd)).digest('hex');
+}
+
+async function registerUser(db, u) {
+  const username = String(u.username || '').trim();
+  const phone = String(u.phone || '').trim();
+  if (username.length < 2 || username.length > 16) return { ok: false, msg: '用户名需 2-16 位' };
+  if (String(u.pwd || '').length < 6) return { ok: false, msg: '密码至少 6 位' };
+  const [dup] = await db.query('SELECT username FROM user WHERE username = ? LIMIT 1', [username]);
+  if (dup.length) return { ok: false, msg: '该用户名已被注册' };
+  if (phone) {
+    const [dupP] = await db.query('SELECT username FROM user WHERE phone = ? LIMIT 1', [phone]);
+    if (dupP.length) return { ok: false, msg: '该手机号已被注册' };
+  }
+  const salt = crypto.randomBytes(8).toString('hex');
+  const id = u.id || crypto.randomBytes(8).toString('hex');
+  await db.query(
+    'INSERT INTO user (id, username, pwd, salt, grade, version, nickname, phone, school, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
+    [id, username, hashPwd(u.pwd, salt), salt, u.grade || '', u.version || '', u.nickname || username, phone, u.school || '', new Date().toISOString()]
+  );
+  return { ok: true, user: { id, username, grade: u.grade || '', version: u.version || '', nickname: u.nickname || username, phone } };
+}
+
+async function verifyUser(db, name, pwd) {
+  const key = String(name || '').trim();
+  const [rows] = await db.query('SELECT * FROM user WHERE username = ? OR phone = ? LIMIT 1', [key, key]);
+  const r = rows[0];
+  if (!r) return { ok: false, msg: '账号不存在，请先注册' };
+  const expect = r.salt ? hashPwd(pwd, r.salt) : String(pwd); /* 兼容旧明文数据 */
+  if (expect !== r.pwd) return { ok: false, msg: '密码不正确，请重新输入' };
+  return {
+    ok: true,
+    user: { id: r.id, username: r.username, grade: r.grade, version: r.version, nickname: r.nickname, phone: r.phone, school: r.school },
+    token: r.id
+  };
 }
 
 /* ---------- 去重哈希 ---------- */
@@ -287,5 +402,7 @@ module.exports = {
   seedKP, upsert, query, stats, toObj,
   saveAttempt, listAttempts, saveUser, listUsers,
   deleteQuestion, getQuestion, updateQuestion,
-  listKP, countKP, getSetting, setSetting, purgeDemo
+  listKP, countKP, getSetting, setSetting, purgeDemo,
+  masteryOf, targetDifficulty, bumpMastery, listMastery, recommend,
+  hashPwd, registerUser, verifyUser
 };

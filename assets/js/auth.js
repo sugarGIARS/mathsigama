@@ -1,5 +1,22 @@
-/* auth.js · 登录页 / 注册页逻辑 */
+/* auth.js · 登录页 / 注册页逻辑
+   认证流程：优先请求后端 /api/login、/api/register（MySQL 存储账户、密码加盐哈希）；
+   后端不可达（纯静态部署）时回退本地 localStorage 账号体系 */
 (function () {
+  /* 带超时的后端探测与请求，失败返回 null 走本地兜底 */
+  async function api(path, body) {
+    try {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 2500);
+      const res = await fetch('/api' + path, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {}), signal: ctl.signal
+      });
+      clearTimeout(timer);
+      const data = await res.json();
+      return { status: res.status, data };
+    } catch (e) { return null; }
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     initPage(null);
 
@@ -17,7 +34,7 @@
       name.addEventListener('input', () => $('#f-name').classList.remove('invalid'));
       pwd.addEventListener('input', () => $('#f-pwd').classList.remove('invalid'));
 
-      form.addEventListener('submit', e => {
+      form.addEventListener('submit', async e => {
         e.preventDefault();
         let ok = true;
         if (!name.value.trim()) { $('#f-name').classList.add('invalid'); ok = false; }
@@ -31,15 +48,38 @@
         const btn = $('#btn-login');
         btn.disabled = true; btn.textContent = '登录中…';
         showLoader('正在验证账号…');
-        setTimeout(() => {
-          const r = Store.Account.login(name.value.trim(), pwd.value);
-          hideLoader();
-          btn.disabled = false; btn.textContent = '登 录';
-          if (!r.ok) { toast(r.msg, 'error'); return; }
+
+        /* 1) 后端登录（MySQL） */
+        const r = await api('/login', { name: name.value.trim(), pwd: pwd.value });
+        hideLoader();
+        btn.disabled = false; btn.textContent = '登 录';
+
+        if (r && r.status === 200 && r.data.ok) {
+          localStorage.setItem('ms_token', r.data.token || '');
+          if (!Store.Account.exists(r.data.user.username)) {
+            Store.Account.register({
+              username: r.data.user.username, pwd: pwd.value,
+              grade: r.data.user.grade || 'g1', version: r.data.user.version || '人教版',
+              nickname: r.data.user.nickname || r.data.user.username, phone: r.data.user.phone || ''
+            });
+          } else {
+            Store.Account.login(r.data.user.username, pwd.value);
+          }
           Store.Prefs.set('remember', $('#in-remember').checked);
-          toast('登录成功，欢迎回来 ' + (r.user.nickname || r.user.username), 'success');
+          toast('登录成功，欢迎回来 ' + (r.data.user.nickname || r.data.user.username), 'success');
           setTimeout(() => { location.href = safeRedirect(redirect); }, 700);
-        }, 600);
+          return;
+        }
+        if (r && r.status === 401) { toast(r.data.msg || '账号或密码不正确', 'error'); return; }
+
+        /* 2) 后端不可达 → 本地账号兜底 */
+        setTimeout(() => {
+          const lr = Store.Account.login(name.value.trim(), pwd.value);
+          if (!lr.ok) { toast(lr.msg, 'error'); return; }
+          Store.Prefs.set('remember', $('#in-remember').checked);
+          toast('登录成功（本地模式），欢迎回来 ' + (lr.user.nickname || lr.user.username), 'success');
+          setTimeout(() => { location.href = safeRedirect(redirect); }, 700);
+        }, 300);
       });
 
       $('#btn-demo').addEventListener('click', () => {
@@ -79,7 +119,7 @@
         $('#' + id).addEventListener('input', () => $('#f-' + id.replace('r-', '')).classList.remove('invalid'));
       });
 
-      $('#reg-form').addEventListener('submit', e => {
+      $('#reg-form').addEventListener('submit', async e => {
         e.preventDefault();
         const user = $('#r-user').value.trim();
         const phone = $('#r-phone').value.trim();
@@ -101,15 +141,44 @@
         if (!ok) { toast('请检查表单填写', 'error'); return; }
 
         showLoader('正在创建学习档案…');
-        setTimeout(() => {
+
+        /* 1) 后端注册（MySQL，密码加盐哈希） */
+        const r = await api('/register', {
+          username: user, phone: phone, pwd: p1,
+          grade: grade, version: sel.value, nickname: user
+        });
+        hideLoader();
+
+        if (r && r.status === 200 && r.data.ok) {
+          localStorage.setItem('ms_token', r.data.token || '');
           Store.Account.register({
             username: user, phone: phone, pwd: p1,
             grade: grade, version: sel.value, nickname: user
           });
-          hideLoader();
           toast('注册成功！已为你切换到' + gradeName(grade) + '课程', 'success');
           setTimeout(() => { location.href = 'learn.html'; }, 800);
-        }, 700);
+          return;
+        }
+        if (r && r.status === 400) {
+          if (/用户名/.test(r.data.msg || '')) {
+            $('#f-user').classList.add('invalid');
+            $('#f-user .err').textContent = r.data.msg;
+          } else if (/手机号/.test(r.data.msg || '')) {
+            $('#f-phone').classList.add('invalid');
+            $('#f-phone .err').textContent = r.data.msg;
+          } else {
+            toast(r.data.msg || '注册失败', 'error');
+          }
+          return;
+        }
+
+        /* 2) 后端不可达 → 本地注册兜底 */
+        Store.Account.register({
+          username: user, phone: phone, pwd: p1,
+          grade: grade, version: sel.value, nickname: user
+        });
+        toast('注册成功（本地模式）！已为你切换到' + gradeName(grade) + '课程', 'success');
+        setTimeout(() => { location.href = 'learn.html'; }, 800);
       });
     }
 

@@ -162,6 +162,16 @@ const Store = (() => {
         if (m) { m.resolved = true; }
       }
       save();
+      /* 同步到服务端：attempt 入库并更新该知识点掌握度（自适应数据源） */
+      const u = Account.current();
+      if (u && !isDemo(u)) {
+        try {
+          fetch('/api/attempts', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify([{ uid: u.username, qid: q.id, kp: q.kp, level: q.level, correct: !!correct, sec: Math.round(sec || 0), ts: Date.now() }])
+          }).catch(() => { });
+        } catch (e) { }
+      }
     },
     mistakes() { return data().mistakes.filter(m => !m.resolved); },
     allMistakes() { return data().mistakes; },

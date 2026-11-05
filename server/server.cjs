@@ -199,11 +199,44 @@ async function handleApi(req, res, url, parsed) {
   if (p === '/attempts' && req.method === 'POST') {
     const b = await body(req);
     const list = Array.isArray(b) ? b : [b];
-    for (const a of list) await store.saveAttempt(db, a);
-    return send(res, 200, { ok: true, n: list.length });
+    const mastery = [];
+    for (const a of list) {
+      await store.saveAttempt(db, a);
+      /* 自适应：每次答题同步更新对应知识点的掌握度 */
+      const m = await store.bumpMastery(db, a.uid, a.kp, a.correct);
+      if (m) mastery.push(m);
+    }
+    return send(res, 200, { ok: true, n: list.length, mastery });
   }
   if (p === '/attempts' && req.method === 'GET') {
     return send(res, 200, { items: await store.listAttempts(db, q.get('limit') || 50) });
+  }
+
+  /* ---------- 自适应：掌握度查询与动态选题 ---------- */
+  if (p === '/mastery' && req.method === 'GET') {
+    return send(res, 200, { items: await store.listMastery(db, q.get('uid') || '') });
+  }
+  if (p === '/recommend' && req.method === 'GET') {
+    return send(res, 200, await store.recommend(db, { uid: q.get('uid'), kp: q.get('kp'), target: q.get('target'), limit: q.get('limit') }));
+  }
+
+  /* ---------- 登录 / 注册（后端认证，密码加盐哈希存储） ---------- */
+  if (p === '/register' && req.method === 'POST') {
+    const b = await body(req);
+    const r = await store.registerUser(db, b);
+    return send(res, r.ok ? 200 : 400, r);
+  }
+  if (p === '/login' && req.method === 'POST') {
+    const b = await body(req);
+    const r = await store.verifyUser(db, b.name || b.username, b.pwd || b.password);
+    return send(res, r.ok ? 200 : 401, r);
+  }
+  if (p === '/me' && req.method === 'GET') {
+    const token = q.get('token') || '';
+    if (!token) return send(res, 401, { error: '缺少 token' });
+    const [rows] = await db.query('SELECT id, username, grade, version, nickname, phone, school FROM user WHERE id = ? LIMIT 1', [token]);
+    if (!rows.length) return send(res, 401, { error: '登录状态已失效' });
+    return send(res, 200, { ok: true, user: rows[0] });
   }
 
   if (p === '/demo/reset' && req.method === 'POST') {
