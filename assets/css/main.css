@@ -813,7 +813,7 @@ html[data-theme="dark"] .skeleton { background: linear-gradient(100deg, #16263c 
   font-family: var(--font-mono); font-size: 11px;
   letter-spacing: .2em; text-transform: uppercase; color: var(--gold-500);
 }
-.num::before { content: ""; width: 6px; height: 6px; background: var(--gold-500); flex-shrink: 0; }
+.num::before { content: ""; width: 18px; height: 3px; border-radius: 3px; background: var(--grad-brand); flex-shrink: 0; }
 
 /* 引文 */
 .quote-box { border-left: 3px solid var(--strong); padding: 4px 0 4px 22px; margin: 0 0 22px; }
@@ -2338,4 +2338,186 @@ html[data-theme="dark"] .card {
   /* 关掉动画后，符号仍需保持原来的淡度 */
   .bg-glyphs span { animation: none !important; opacity: var(--op, .16); }
   .bg-dust { display: none; }
+}
+
+/* ============================================================
+   30. v2 · 青春版视觉升级
+   融合：Stripe 渐变光影 × Desmos 动态函数曲线 ×
+        Family 活泼配色 × Superlist 笔触高亮
+   只做增量覆盖，不动上方既有规则
+   ============================================================ */
+:root {
+  --violet: #7c5cff;
+  --violet-soft: rgba(124, 92, 255, .12);
+  --cyan: #0ea5e9;
+  --cyan-soft: rgba(14, 165, 233, .12);
+  --pink: #f43f8e;
+  --pink-soft: rgba(244, 63, 142, .10);
+  --grad-brand: linear-gradient(115deg, var(--brand) 0%, var(--violet) 52%, var(--cyan) 100%);
+  --grad-text: linear-gradient(100deg, var(--brand) 4%, var(--violet) 50%, var(--cyan) 98%);
+  --grad-btn: linear-gradient(120deg, var(--brand-600) 0%, var(--violet) 58%, var(--cyan) 130%);
+  --sh-violet: 0 8px 24px -8px rgba(124, 92, 255, .45), 0 2px 8px -2px rgba(51, 85, 230, .3);
+}
+
+/* ---- 渐变主按钮（Stripe 式流光） ---- */
+.btn-primary {
+  background-image: var(--grad-btn);
+  border-color: transparent;
+  box-shadow: var(--sh-violet);
+}
+.btn-primary:hover { background-image: var(--grad-btn); filter: saturate(1.15) brightness(1.05); }
+.btn-primary .shine {
+  background: linear-gradient(104deg, transparent 30%, rgba(255,255,255,.55) 50%, transparent 70%);
+}
+
+/* ---- 标题渐变字：替代实色色块 ---- */
+.hh-title .accent {
+  background: var(--grad-text);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; padding: 0; margin-right: .04em;
+}
+
+/* ---- Superlist 式笔触高亮：荧光笔划重点 ---- */
+.mark {
+  position: relative; white-space: nowrap; z-index: 0;
+}
+.mark::after {
+  content: ""; position: absolute; z-index: -1;
+  left: -.08em; right: -.14em; bottom: .02em; height: .44em;
+  background: linear-gradient(92deg,
+    color-mix(in srgb, var(--brand) 30%, transparent),
+    color-mix(in srgb, var(--violet) 26%, transparent) 55%,
+    color-mix(in srgb, var(--cyan) 22%, transparent));
+  border-radius: 6px 14px 8px 16px / 14px 8px 16px 6px;
+  transform: rotate(-.8deg);
+}
+
+/* ---- Desmos 式首屏函数曲线 ---- */
+.hh-curve {
+  position: absolute; left: 0; right: 0; bottom: -6px;
+  width: 100%; height: clamp(120px, 22vh, 240px);
+  z-index: 0; pointer-events: none;
+}
+.hh-curve path {
+  fill: none; stroke-width: 2; stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.hh-curve .c1 { stroke: url(#curveGradA); opacity: .55; stroke-dasharray: 7 13; animation: curveFlow 11s linear infinite; }
+.hh-curve .c2 { stroke: url(#curveGradB); opacity: .4; stroke-dasharray: 3 15; animation: curveFlow 15s linear infinite reverse; }
+.hh-curve .c3 { stroke: url(#curveGradC); opacity: .5; animation: curveFloat 9s ease-in-out infinite alternate; }
+@keyframes curveFlow { to { stroke-dashoffset: -400; } }
+@keyframes curveFloat {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-14px); }
+}
+
+/* ---- 漂浮公式胶囊（Desmos / Family 混合） ---- */
+.chip-float {
+  position: absolute; z-index: 1;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 16px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
+  box-shadow: 0 10px 28px -12px rgba(51, 85, 230, .28);
+  font-family: var(--font-mono); font-size: 12.5px; letter-spacing: .02em;
+  color: var(--text); pointer-events: none;
+  animation: chipFloat 8s ease-in-out infinite alternate;
+}
+.chip-float i {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--grad-brand); flex: none;
+}
+.chip-float.cf1 { top: 8%; right: 5%; color: var(--brand); animation-delay: 0s; }
+.chip-float.cf2 { top: 76%; left: 29%; animation-delay: -2.6s; }
+.chip-float.cf3 { top: 85%; right: 9%; animation-delay: -5.2s; }
+.chip-float.cf2 { border-color: color-mix(in srgb, var(--violet) 30%, transparent); }
+.chip-float.cf2 i { background: var(--violet); }
+.chip-float.cf3 { border-color: color-mix(in srgb, var(--cyan) 34%, transparent); }
+.chip-float.cf3 i { background: var(--cyan); }
+@keyframes chipFloat {
+  from { transform: translateY(-8px) rotate(-.6deg); }
+  to   { transform: translateY(10px) rotate(.8deg); }
+}
+
+/* ---- 公式跑马灯（活泼彩带） ---- */
+.formula-ticker {
+  position: relative; overflow: hidden; padding: 18px 0;
+  border-top: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2);
+  background: color-mix(in srgb, var(--card) 55%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.ft-track {
+  display: inline-flex; align-items: center; gap: 34px;
+  white-space: nowrap; will-change: transform;
+  animation: ftScroll 36s linear infinite;
+  padding-right: 34px;
+}
+.formula-ticker:hover .ft-track { animation-play-state: paused; }
+.ft-track span {
+  font-family: var(--font-mono); font-size: 13px; letter-spacing: .04em;
+  color: color-mix(in srgb, var(--text-2) 88%, transparent);
+}
+.ft-track span:nth-child(4n+1) { color: var(--brand); font-weight: 600; }
+.ft-track span:nth-child(4n+2) { color: var(--violet); }
+.ft-track span:nth-child(4n+3) { color: var(--pink); }
+.ft-track span:nth-child(4n+4) { color: var(--cyan); }
+.ft-track em {
+  font-style: normal; width: 5px; height: 5px; border-radius: 50%;
+  background: color-mix(in srgb, var(--text-3) 55%, transparent); flex: none;
+}
+@keyframes ftScroll { to { transform: translateX(-50%); } }
+
+/* ---- 卡片悬浮：彩色辉光 + 微抬升 ---- */
+.path-card::after { background: var(--grad-brand) !important; }
+.kp-card, .reco-card { transition: background var(--t), box-shadow .3s var(--ease), transform .3s var(--ease); }
+.kp-card:hover, .reco-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 34px -18px rgba(124, 92, 255, .38);
+  z-index: 2;
+}
+.kp-card::before { background: var(--grad-brand) !important; }
+
+/* ---- 选中态改为渐变 ---- */
+.grade-tab.on {
+  background: var(--grad-btn);
+  color: #fff; font-weight: 600;
+}
+.ver-chip.on { background: var(--grad-btn); border-color: transparent; color: #fff; }
+
+/* ---- 统计数字渐变描边感 ---- */
+.hh-stats b {
+  background: var(--grad-text);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: var(--brand);
+}
+
+/* ---- 暗色主题适配：亮色渐变保证对比度 ---- */
+html[data-theme="dark"] .hh-title .accent {
+  background-image: linear-gradient(100deg, #8ea6ff 0%, #a78bfa 48%, #67e8f9 100%);
+  color: transparent;
+}
+html[data-theme="dark"] .hh-stats b {
+  background-image: linear-gradient(100deg, #8ea6ff 0%, #a78bfa 50%, #67e8f9 100%);
+}
+html[data-theme="dark"] .mark::after {
+  background: linear-gradient(92deg, rgba(124, 92, 255, .55), rgba(14, 165, 233, .48));
+}
+html[data-theme="dark"] .chip-float {
+  background: color-mix(in srgb, #1b1b20 86%, transparent);
+  box-shadow: 0 10px 28px -12px rgba(0, 0, 0, .6);
+}
+html[data-theme="dark"] .formula-ticker {
+  background: color-mix(in srgb, #17181c 55%, transparent);
+}
+
+/* ---- 适配与降载 ---- */
+@media (max-width: 1000px) {
+  .chip-float { display: none; }
+  .hh-curve { opacity: .7; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hh-curve path, .chip-float, .ft-track { animation: none !important; }
+  .kp-card:hover, .reco-card:hover { transform: none; }
 }

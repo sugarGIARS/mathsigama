@@ -29,11 +29,35 @@
 <!-- ============ 首屏 ============ -->
 <section class="home-hero">
   <div class="m-ring"><svg id="m-ring-svg" viewBox="0 0 800 800" aria-hidden="true"></svg></div>
+
+  <!-- Desmos 式动态函数曲线：三条相位不同的曲线在首屏底部流动 -->
+  <svg class="hh-curve" viewBox="0 0 1440 220" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="curveGradA" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#3355e6"/><stop offset="1" stop-color="#7c5cff"/>
+      </linearGradient>
+      <linearGradient id="curveGradB" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#7c5cff"/><stop offset="1" stop-color="#0ea5e9"/>
+      </linearGradient>
+      <linearGradient id="curveGradC" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#0ea5e9"/><stop offset="1" stop-color="#3355e6"/>
+      </linearGradient>
+    </defs>
+    <path class="c1" d="M0,150 C120,90 240,90 360,150 C480,210 600,210 720,150 C840,90 960,90 1080,150 C1200,210 1320,210 1440,150"/>
+    <path class="c2" d="M0,170 C180,110 300,230 480,170 C660,110 780,230 960,170 C1140,110 1260,230 1440,170"/>
+    <path class="c3" d="M0,130 C160,180 320,60 480,130 C640,200 800,70 960,130 C1120,190 1280,80 1440,130"/>
+  </svg>
+
+  <!-- 漂浮公式胶囊 -->
+  <span class="chip-float cf1" aria-hidden="true"><i></i>f(x) = a(x−h)² + k</span>
+  <span class="chip-float cf2" aria-hidden="true"><i></i>a² + b² = c²</span>
+  <span class="chip-float cf3" aria-hidden="true"><i></i>sin²θ + cos²θ = 1</span>
+
   <div class="container hh-grid">
     <div class="hh-left">
       <span class="num">MathSigma · 中学数学</span>
       <h1 class="hh-title">数学，<br><span class="accent">一步一步</span>学明白</h1>
-      <p class="hh-lead">按年级与教材版本整理的电子讲义，配套分层习题与 AI 引导式答疑；每一次作答都被记录，错题、薄弱点与下一步该学什么，一目了然。</p>
+      <p class="hh-lead">按年级与教材版本整理的电子讲义，配套分层习题与 AI 引导式答疑；每一次作答都被记录，<span class="mark">错题、薄弱点</span>与下一步该学什么，一目了然。</p>
 
       <div class="search-box">
         <svg class="si" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
@@ -65,6 +89,28 @@
     </aside>
   </div>
 </section>
+
+<!-- ============ 公式跑马灯 ============ -->
+<div class="formula-ticker" aria-hidden="true">
+  <div class="ft-track">
+    <span>a² + b² = c²</span><em></em>
+    <span>sin²θ + cos²θ = 1</span><em></em>
+    <span>eⁱπ + 1 = 0</span><em></em>
+    <span>x = (−b ± √(b²−4ac)) / 2a</span><em></em>
+    <span>Sₙ = n(a₁+aₙ)/2</span><em></em>
+    <span>lim f(x) = L</span><em></em>
+    <span>d/dx eˣ = eˣ</span><em></em>
+    <span>∑ 1/n² = π²/6</span><em></em>
+    <span>a² + b² = c²</span><em></em>
+    <span>sin²θ + cos²θ = 1</span><em></em>
+    <span>eⁱπ + 1 = 0</span><em></em>
+    <span>x = (−b ± √(b²−4ac)) / 2a</span><em></em>
+    <span>Sₙ = n(a₁+aₙ)/2</span><em></em>
+    <span>lim f(x) = L</span><em></em>
+    <span>d/dx eˣ = eˣ</span><em></em>
+    <span>∑ 1/n² = π²/6</span><em></em>
+  </div>
+</div>
 
 <!-- ============ 学习路径 ============ -->
 <section class="section">
