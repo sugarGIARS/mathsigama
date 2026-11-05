@@ -11,126 +11,124 @@
 <body>
 <div class="t-stage">
 
-  <!-- ═══ 顶栏 ═══ -->
+  <!-- ═══ 全屏背景"立绘"：巨型 Σ 徽记 + 函数曲线 ═══ -->
+  <div class="t-art" aria-hidden="true">
+    <svg class="t-curves" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMax slice">
+      <defs>
+        <linearGradient id="cgA" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#3355e6"/><stop offset="1" stop-color="#38d9f5"/>
+        </linearGradient>
+      </defs>
+      <path class="k1" d="M-40,720 C160,640 300,800 480,720 C660,640 800,800 980,720 C1160,640 1300,800 1480,720"/>
+      <path class="k2" d="M-40,780 C180,700 340,850 520,780 C700,710 860,850 1040,780 C1220,710 1380,850 1480,780"/>
+      <path class="k3" d="M-40,660 C200,740 360,590 540,660 C720,730 880,590 1060,660 C1240,730 1400,600 1480,660"/>
+    </svg>
+    <span class="t-glyph t-g1">f(x)=ax²+bx+c</span>
+    <span class="t-glyph t-g2">∫∫ dxdy</span>
+    <span class="t-glyph t-g3">a²+b²=c²</span>
+    <span class="t-glyph t-g4">∀ε&gt;0 ∃δ</span>
+    <div class="t-sigma">Σ</div>
+  </div>
+
+  <!-- ═══ 顶部资源条 ═══ -->
   <header class="t-top">
-    <div class="t-logo">Σ</div>
-    <div class="t-id">
-      <b>MATHSIGMA</b>
-      <span>学习作战终端 · LEARNING TERMINAL v2.6</span>
-    </div>
+    <a class="t-back" href="index.html">↩ 经典版</a>
+    <div class="t-date" id="t-date">—</div>
     <div class="t-top-right">
-      <div class="t-clock" id="t-clock">--:--:--</div>
-      <div class="t-status"><i></i>SYSTEM ONLINE</div>
-      <a class="t-back" href="index.html">经典版 ↩</a>
+      <div class="t-res"><i class="d1"></i><b id="c-kp">—</b><span>知识点储备</span></div>
+      <div class="t-res"><i class="d2"></i><b id="c-q">—</b><span>题库弹药</span></div>
+      <div class="t-res"><i class="d3"></i><b id="c-a">—</b><span>累计作答</span></div>
     </div>
   </header>
 
-  <!-- ═══ 主体三栏 ═══ -->
-  <div class="t-main">
+  <!-- ═══ 右侧方块拼贴菜单 ═══ -->
+  <nav class="t-mosaic" aria-label="作战菜单">
 
-    <!-- 左：作战菜单 -->
-    <nav class="t-menu" aria-label="作战菜单">
-      <span class="t-menu-cap">// OPERATION LIST</span>
-      <a class="t-mi" href="learn.html">
-        <span class="n">01</span>
-        <span class="t"><b>课程学习</b><i>STUDY / 讲义阅读</i></span>
-        <span class="arrow">→</span>
-      </a>
-      <a class="t-mi" href="practice.html">
-        <span class="n">02</span>
-        <span class="t"><b>习题练习</b><i>COMBAT / 分层作战</i></span>
-        <span class="arrow">→</span>
-      </a>
-      <a class="t-mi" href="ai.html">
-        <span class="n">03</span>
-        <span class="t"><b>AI 答疑</b><i>SUPPORT / Σ 老师</i></span>
-        <span class="arrow">→</span>
-      </a>
-      <a class="t-mi" href="profile.html">
-        <span class="n">04</span>
-        <span class="t"><b>个人中心</b><i>ARCHIVE / 学习档案</i></span>
-        <span class="arrow">→</span>
-      </a>
-      <span class="t-menu-cap t-cap2">// SYSTEM</span>
-      <a class="t-mi t-mi-sys" href="index.html">
-        <span class="n">05</span>
-        <span class="t"><b>经典版首页</b><i>CLASSIC UI</i></span>
-        <span class="arrow">→</span>
-      </a>
-    </nav>
+    <!-- 理智面板：脑力值 + 日期时间 -->
+    <a class="tm tm-sanity" href="profile.html" style="grid-area:1/1/2/5">
+      <div class="ts-left">
+        <b id="t-brain">—</b>
+        <span>脑力<i>/120</i></span>
+      </div>
+      <div class="ts-right">
+        <b>博士</b>
+        <span id="t-time">--:--:--</span>
+      </div>
+    </a>
 
-    <!-- 中：今日作战横幅 -->
-    <section class="t-hero">
-      <div class="t-episode">
-        <span class="t-ep-tag">DAILY OPERATION <i>//</i> 今日作战</span>
-        <h1>把今天的<br><em>薄弱点</em>清掉</h1>
-        <p>自适应引擎已完成弹药装填：按掌握度匹配题目难度——太简单无效刷题，太难会挫败。</p>
-        <div class="t-cta">
-          <a class="t-btn t-btn-primary" href="practice.html">开始今日作战</a>
-          <a class="t-btn" href="learn.html">继续学习计划</a>
-        </div>
-        <div class="t-chips">
-          <span>知识点储备 <b id="c-kp">—</b></span>
-          <span>题库弹药 <b id="c-q">—</b></span>
-          <span>累计作答 <b id="c-a">—</b></span>
-        </div>
-      </div>
-      <div class="t-sigma" aria-hidden="true">Σ</div>
-      <div class="t-hero-deco" aria-hidden="true">
-        <span></span><span></span><span></span>
-      </div>
-    </section>
+    <!-- 活动横幅 -->
+    <a class="tm tm-banner" href="practice.html" style="grid-area:1/5/3/7">
+      <span class="tb-tag">限时活动</span>
+      <b>周末<br>自测周回</b>
+      <span class="tb-sub">SIDE STORY<br>REVIEW</span>
+    </a>
 
-    <!-- 右：干员档案 -->
-    <aside class="t-side">
-      <div class="t-card">
-        <div class="t-avatar" aria-hidden="true">Σ</div>
-        <div class="t-user-meta">
-          <b id="u-name">访客博士</b>
-          <span id="u-tag">未接入档案 · 登录后同步作战记录</span>
-        </div>
-        <a class="t-user-btn" id="u-btn" href="login.html">接入</a>
-      </div>
+    <!-- 作战：习题练习（大块 + 橙色当前标记） -->
+    <a class="tm tm-big" href="practice.html" data-ic="战" style="grid-area:2/1/3/5">
+      <span class="tm-flag">当前 · 自适应难度</span>
+      <b class="tm-zh">作战</b>
+      <span class="tm-sub">习题练习 · 分层闯关</span>
+    </a>
 
-      <div class="t-card">
-        <div class="t-card-h">信赖度监测 <i>MASTERY MONITOR</i></div>
-        <div class="t-bars" id="t-mastery">
-          <div class="t-empty">接入档案后，这里显示各知识点的掌握度。</div>
-        </div>
-      </div>
+    <!-- 编队 / 干员 -->
+    <a class="tm" href="learn.html" data-ic="队" style="grid-area:3/1/4/4">
+      <b class="tm-zh">编队</b>
+      <span class="tm-sub">课程学习 · 讲义</span>
+    </a>
+    <a class="tm" href="learn.html" data-ic="员" style="grid-area:3/4/4/7">
+      <b class="tm-zh">干员</b>
+      <span class="tm-sub">知识点图鉴</span>
+    </a>
 
-      <div class="t-card">
-        <div class="t-card-h">今日任务 <i>MISSIONS</i></div>
-        <ul class="t-tasks">
-          <li><i></i>完成 5 道基础题热身</li>
-          <li><i></i>清剿 1 个薄弱知识点</li>
-          <li><i></i>向 Σ 老师汇报 1 个疑问</li>
-          <li><i></i>回看错题本沉淀经验</li>
-        </ul>
+    <!-- 采购中心（青蓝高亮）→ AI 答疑，含子按钮 -->
+    <div class="tm tm-cyan" style="grid-area:4/1/5/5">
+      <a class="tc-main" href="ai.html">
+        <b class="tm-zh">采购中心</b>
+        <span class="tm-sub">Σ 老师答疑</span>
+      </a>
+      <div class="tc-subs">
+        <a href="ai.html">引导提问</a>
+        <a href="profile.html">错题本</a>
+        <a href="profile.html">学习报告</a>
       </div>
-    </aside>
+    </div>
+
+    <!-- 任务 -->
+    <a class="tm" href="profile.html" data-ic="务" style="grid-area:4/5/5/7">
+      <b class="tm-zh">任务</b>
+      <span class="tm-sub">每日目标 · 进度</span>
+    </a>
+
+    <!-- 底排 -->
+    <a class="tm" href="profile.html" data-ic="建" style="grid-area:5/1/6/3">
+      <b class="tm-zh">基建</b>
+      <span class="tm-sub">掌握度基建</span>
+    </a>
+    <a class="tm" href="profile.html" data-ic="库" style="grid-area:5/3/6/5">
+      <b class="tm-zh">仓库</b>
+      <span class="tm-sub">学习档案</span>
+    </a>
+    <a class="tm tm-dim" href="index.html" data-ic="典" style="grid-area:5/5/6/7">
+      <b class="tm-zh">经典</b>
+      <span class="tm-sub">返回经典版 UI</span>
+    </a>
+  </nav>
+
+  <!-- ═══ 左下：好友 / 情报 标签页 ═══ -->
+  <div class="t-intel">
+    <div class="t-intel-panel" id="t-intel-panel">
+      <div class="t-ip-h">信赖度监测 <i>MASTERY MONITOR</i></div>
+      <div class="t-bars" id="t-mastery">
+        <div class="t-empty">点击"情报"标签接入档案，查看各知识点掌握度。</div>
+      </div>
+    </div>
+    <div class="t-intel-tabs">
+      <button class="t-tab" id="t-tab-intel"><i>▤</i>情报</button>
+      <button class="t-tab" id="t-tab-log"><i>ฅ</i>作战记录</button>
+    </div>
   </div>
 
-  <!-- ═══ 底部公告滚动 ═══ -->
-  <footer class="t-ticker">
-    <span class="t-ticker-tag">公告</span>
-    <div class="t-track" aria-hidden="true">
-      <span>[作战提示] 掌握度 ≥ 85% 的知识点将推送提高难度题，&lt;60% 自动回补基础题</span><i>◆</i>
-      <span>[补给通知] 错题变式已入库，清剿薄弱点可获得同难度新题</span><i>◆</i>
-      <span>[协议更新] 每次作答都会实时更新知识点信赖度</span><i>◆</i>
-      <span>[天灾预警] 长时间未复习的知识点掌握度会自然衰减（错觉，但建议常回来）</span><i>◆</i>
-      <span>[作战提示] 掌握度 ≥ 85% 的知识点将推送提高难度题，&lt;60% 自动回补基础题</span><i>◆</i>
-      <span>[补给通知] 错题变式已入库，清剿薄弱点可获得同难度新题</span><i>◆</i>
-      <span>[协议更新] 每次作答都会实时更新知识点信赖度</span><i>◆</i>
-      <span>[天灾预警] 长时间未复习的知识点掌握度会自然衰减（错觉，但建议常回来）</span><i>◆</i>
-    </div>
-  </footer>
-
-  <!-- 扫描线与氛围层 -->
-  <div class="t-scan" aria-hidden="true"></div>
-  <div class="t-grid-bg" aria-hidden="true"></div>
 </div>
-
-<script src="assets/js/terminal.js?v=2"></script>
+<script src="assets/js/terminal.js?v=4"></script>
 </body>
 </html>
