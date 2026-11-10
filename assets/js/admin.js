@@ -19,6 +19,7 @@
       document.querySelectorAll('.adm-pane').forEach(p => p.classList.remove('on'));
       $('#pane-' + name).classList.add('on');
       if (name === 'users') loadUsers();
+      if (name === 'kp') loadKpTable();
       if (name === 'bank' && !state.kps.length) loadKpOptions();
     });
   });
@@ -196,9 +197,26 @@
     try {
       const us = await DB.users();
       $('#user-table').innerHTML = us.length
-        ? `<table class="adm"><thead><tr><th>用户名</th><th>昵称</th><th>年级</th><th>版本</th><th>注册时间</th></tr></thead><tbody>
-           ${us.map(u => `<tr><td>${esc(u.username)}</td><td>${esc(u.nickname || '')}</td><td>${esc(u.grade || '')}</td><td>${esc(u.version || '')}</td><td>${esc(String(u.created_at || '').slice(0, 10))}</td></tr>`).join('')}</tbody></table>`
-        : '<div class="adm-empty">暂无用户（用户数据仍在浏览器本地，可在页面注册后同步）</div>';
+        ? `<table class="adm"><thead><tr><th>用户名</th><th>昵称</th><th>年级</th><th>版本</th><th>手机号</th><th>注册时间</th><th style="width:130px">操作</th></tr></thead><tbody>
+           ${us.map(u => `<tr data-uid="${esc(u.id)}">
+             <td>${esc(u.username)}</td><td>${esc(u.nickname || '')}</td>
+             <td>${esc(gradeLabel(u.grade))}</td><td>${esc(u.version || '')}</td>
+             <td>${esc(u.phone || '')}</td><td>${esc(String(u.created_at || '').slice(0, 10))}</td>
+             <td><div class="adm-actions">
+               <button class="btn btn-ghost btn-sm" data-u-edit="${esc(u.id)}">编辑</button>
+               <button class="btn btn-ghost btn-sm" data-u-del="${esc(u.id)}">删除</button>
+             </div></td></tr>`).join('')}</tbody></table>`
+        : '<div class="adm-empty">暂无用户，可点击"新增用户"创建</div>';
+      $('#user-table').querySelectorAll('[data-u-edit]').forEach(b => b.addEventListener('click', () => openUserModal(us.find(x => x.id === b.dataset.uEdit))));
+      $('#user-table').querySelectorAll('[data-u-del]').forEach(b => b.addEventListener('click', async () => {
+        const u = us.find(x => x.id === b.dataset.uDel);
+        if (!confirm(`确认删除用户「${u.username}」？\n该操作会同时删除其全部答题记录与掌握度数据，不可恢复。`)) return;
+        try {
+          const r = await DB.deleteUser(u.id);
+          if (r && r.ok) { toast(`已删除 ${u.username}（清理答题 ${r.attempts || 0} 条）`, 'ok'); loadUsers(); loadOverview(); }
+          else toast('删除失败', 'warn');
+        } catch (e) { toast('删除失败：后端未启动或无权限', 'warn'); }
+      }));
     } catch (e) { $('#user-table').innerHTML = '<div class="adm-empty">无法读取：后端未启动或无权限</div>'; }
     try {
       const as = await DB.attempts(50);
@@ -223,6 +241,133 @@
     } catch (e) {
       msg.textContent = '清理失败：后端未启动';
     }
+  });
+
+  /* ---------- 年级/版本辅助 ---------- */
+  function gradeLabel(id) { const g = (typeof GRADES !== 'undefined' ? GRADES : []).find(x => x.id === id); return g ? g.name : (id || ''); }
+  function fillGradeSelect(sel, withAll) {
+    const gs = typeof GRADES !== 'undefined' ? GRADES : [];
+    sel.innerHTML = (withAll ? '<option value="">全部</option>' : '') +
+      gs.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+  }
+  function fillVersionSelect(sel) {
+    sel.innerHTML = (typeof VERSIONS !== 'undefined' ? VERSIONS : []).map(v => `<option value="${v}">${v}</option>`).join('');
+  }
+
+  /* ---------- 用户新增 / 编辑弹窗 ---------- */
+  let userEditing = null;
+  function openUserModal(u) {
+    userEditing = u || null;
+    fillGradeSelect($('#u-grade')); fillVersionSelect($('#u-version'));
+    $('#user-modal-title').textContent = u ? '编辑用户 · ' + u.username : '新增用户';
+    $('#u-username').value = u ? u.username : '';
+    $('#u-username').disabled = !!u;
+    $('#u-nickname').value = u ? (u.nickname || '') : '';
+    $('#u-grade').value = u ? (u.grade || '') : 'g7';
+    $('#u-version').value = u ? (u.version || '人教版') : '人教版';
+    $('#u-phone').value = u ? (u.phone || '') : '';
+    $('#u-school').value = u ? (u.school || '') : '';
+    $('#u-pwd').value = '';
+    $('#user-modal').style.display = 'block';
+  }
+  $('#u-add').addEventListener('click', () => openUserModal(null));
+  $('#u-cancel').addEventListener('click', () => { $('#user-modal').style.display = 'none'; });
+  $('#u-save').addEventListener('click', async () => {
+    const body = {
+      nickname: $('#u-nickname').value.trim(),
+      grade: $('#u-grade').value, version: $('#u-version').value,
+      phone: $('#u-phone').value.trim(), school: $('#u-school').value.trim()
+    };
+    if ($('#u-pwd').value) body.pwd = $('#u-pwd').value;
+    try {
+      if (userEditing) {
+        await DB.updateUser(userEditing.id, body);
+      } else {
+        body.username = $('#u-username').value.trim();
+        body.pwd = body.pwd || '123456';
+        if (!body.username || body.username.length < 2) { toast('用户名至少 2 个字符', 'warn'); return; }
+        await DB.saveUser(body);
+      }
+      toast('用户已保存', 'ok');
+      $('#user-modal').style.display = 'none';
+      loadUsers(); loadOverview();
+    } catch (e) { toast('保存失败：后端未启动或无权限（用户名可能已存在）', 'warn'); }
+  });
+
+  /* ---------- 分类（知识点）管理 ---------- */
+  async function loadKpTable() {
+    const kps = await DB.kp();
+    state.kps = kps;
+    const f = $('#k-grade-filter');
+    if (f.options.length <= 1) {
+      fillGradeSelect(f, true);
+      f.addEventListener('change', () => renderKpTable());
+    }
+    renderKpTable();
+  }
+  function renderKpTable() {
+    const g = $('#k-grade-filter').value;
+    const list = state.kps.filter(k => !g || k.grade === g);
+    $('#kp-table').innerHTML = list.length
+      ? `<table class="adm"><thead><tr><th style="width:110px">ID</th><th style="width:110px">年级</th><th>分类名称</th>
+         <th style="width:200px">适用版本</th><th>简介</th><th style="width:130px">操作</th></tr></thead><tbody>
+         ${list.map(k => `<tr>
+           <td>${esc(k.id)}</td><td>${esc(gradeLabel(k.grade))}</td><td>${esc(k.title)}</td>
+           <td>${esc((k.versions || []).join('、'))}</td>
+           <td class="stem-cell"><div class="txt">${esc(k.summary || '')}</div></td>
+           <td><div class="adm-actions">
+             <button class="btn btn-ghost btn-sm" data-k-edit="${esc(k.id)}">编辑</button>
+             <button class="btn btn-ghost btn-sm" data-k-del="${esc(k.id)}">删除</button>
+           </div></td></tr>`).join('')}</tbody></table>`
+      : '<div class="adm-empty">该年级下暂无分类</div>';
+    $('#kp-table').querySelectorAll('[data-k-edit]').forEach(b => b.addEventListener('click', () => openKpModal(state.kps.find(x => x.id === b.dataset.kEdit))));
+    $('#kp-table').querySelectorAll('[data-k-del]').forEach(b => b.addEventListener('click', async () => {
+      const k = state.kps.find(x => x.id === b.dataset.kDel);
+      try {
+        const r = await DB.deleteKp(k.id);
+        if (r && r.ok) { toast('已删除分类 ' + k.id, 'ok'); await loadKpTable(); loadKpOptions(); loadOverview(); return; }
+        if (r && r.questions > 0 && confirm(`「${k.title}」下还有 ${r.questions} 道题目。\n强制删除会连同这些题目一起删除，确定继续？`)) {
+          const r2 = await DB.deleteKp(k.id, true);
+          if (r2 && r2.ok) { toast(`已删除分类及 ${r2.removedQuestions} 道题目`, 'ok'); await loadKpTable(); loadKpOptions(); loadOverview(); return; }
+        }
+        if (r) toast(r.error || '删除失败', 'warn');
+      } catch (e) { toast('删除失败：后端未启动或无权限', 'warn'); }
+    }));
+  }
+  let kpEditing = null;
+  function openKpModal(k) {
+    kpEditing = k || null;
+    fillGradeSelect($('#k-grade'));
+    $('#kp-modal-title').textContent = k ? '编辑分类 · ' + k.id : '新增分类';
+    $('#k-id').value = k ? k.id : '';
+    $('#k-id').disabled = !!k;
+    $('#k-grade').value = k ? (k.grade || 'g7') : 'g7';
+    $('#k-title').value = k ? (k.title || '') : '';
+    $('#k-versions').value = k ? (k.versions || []).join(',') : '人教版';
+    $('#k-summary').value = k ? (k.summary || '') : '';
+    $('#kp-modal').style.display = 'block';
+  }
+  $('#k-add').addEventListener('click', () => openKpModal(null));
+  $('#k-cancel').addEventListener('click', () => { $('#kp-modal').style.display = 'none'; });
+  $('#k-save').addEventListener('click', async () => {
+    const body = {
+      grade: $('#k-grade').value,
+      title: $('#k-title').value.trim(),
+      versions: $('#k-versions').value.split(/[,，、]/).map(s => s.trim()).filter(Boolean),
+      summary: $('#k-summary').value.trim()
+    };
+    if (!body.title) { toast('分类名称不能为空', 'warn'); return; }
+    try {
+      if (kpEditing) await DB.saveKp(Object.assign({ id: kpEditing.id }, body));
+      else {
+        const id = $('#k-id').value.trim();
+        if (!id) { toast('请填写分类 ID', 'warn'); return; }
+        await DB.saveKp(Object.assign({ id }, body));
+      }
+      toast('分类已保存', 'ok');
+      $('#kp-modal').style.display = 'none';
+      await loadKpTable(); loadKpOptions(); loadOverview();
+    } catch (e) { toast('保存失败：后端未启动或无权限', 'warn'); }
   });
 
   /* ---------- 初始化 ---------- */

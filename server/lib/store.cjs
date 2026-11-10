@@ -92,6 +92,9 @@ async function ensureColumns(db) {
     "ALTER TABLE `user` ADD COLUMN phone VARCHAR(32) NOT NULL DEFAULT '' AFTER nickname");
   await ensureColumn(db, 'user', 'salt',
     'ALTER TABLE `user` ADD COLUMN salt VARCHAR(32) NOT NULL DEFAULT \'\' AFTER pwd');
+  /* 头像：data URL（base64），由前端压缩到 128×128 后上传 */
+  await ensureColumn(db, 'user', 'avatar',
+    'ALTER TABLE `user` ADD COLUMN avatar MEDIUMTEXT NULL AFTER salt');
 }
 
 /* ---------- 自适应：掌握度与目标难度 ----------
@@ -170,7 +173,7 @@ async function registerUser(db, u) {
     'INSERT INTO user (id, username, pwd, salt, grade, version, nickname, phone, school, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
     [id, username, hashPwd(u.pwd, salt), salt, u.grade || '', u.version || '', u.nickname || username, phone, u.school || '', new Date().toISOString()]
   );
-  return { ok: true, user: { id, username, grade: u.grade || '', version: u.version || '', nickname: u.nickname || username, phone } };
+  return { ok: true, user: { id, username, grade: u.grade || '', version: u.version || '', nickname: u.nickname || username, phone }, token: id };
 }
 
 async function verifyUser(db, name, pwd) {
@@ -347,6 +350,62 @@ async function listUsers(db) {
   return rows;
 }
 
+/* ---------- 用户管理：编辑 / 删除 / 头像 ---------- */
+async function getUser(db, id) {
+  const [rows] = await db.query('SELECT id, username, grade, version, nickname, phone, school, created_at, avatar FROM `user` WHERE id = ? LIMIT 1', [id]);
+  return rows[0] || null;
+}
+async function updateUser(db, id, patch) {
+  /* 白名单字段，动态拼 SET；pwd 单独走加盐哈希 */
+  const sets = [], args = [];
+  const map = { username: 'username', nickname: 'nickname', grade: 'grade', version: 'version', phone: 'phone', school: 'school' };
+  for (const k of Object.keys(map)) {
+    if (patch[k] !== undefined) { sets.push(map[k] + ' = ?'); args.push(String(patch[k])); }
+  }
+  if (patch.pwd) {
+    const salt = crypto.randomBytes(8).toString('hex');
+    sets.push('salt = ?', 'pwd = ?');
+    args.push(salt, crypto.createHash('sha256').update(salt + String(patch.pwd)).digest('hex'));
+  }
+  if (!sets.length) return { ok: false, error: '没有可更新的字段' };
+  const [r] = await db.query('UPDATE `user` SET ' + sets.join(', ') + ' WHERE id = ?', args.concat([id]));
+  if (!r.affectedRows) return { ok: false, error: '用户不存在' };
+  return { ok: true, id };
+}
+async function deleteUser(db, id) {
+  /* 连带清理该用户的答题与掌握度记录，避免孤儿数据 */
+  const [a] = await db.query('DELETE FROM attempt WHERE uid = ?', [id]);
+  await db.query('DELETE FROM mastery_scores WHERE uid = ?', [id]);
+  const [u] = await db.query('DELETE FROM `user` WHERE id = ?', [id]);
+  return { ok: u.affectedRows > 0, attempts: Number(a.affectedRows || 0) };
+}
+async function saveAvatar(db, id, dataUrl) {
+  const [r] = await db.query('UPDATE `user` SET avatar = ? WHERE id = ?', [dataUrl || null, id]);
+  if (!r.affectedRows) return { ok: false, error: '用户不存在' };
+  return { ok: true, id };
+}
+
+/* ---------- 分类（知识点）管理：增删改 ---------- */
+async function upsertKP(db, k) {
+  if (!k || !k.id || !k.title) return { ok: false, error: '缺少 id 或 title' };
+  const j = v => JSON.stringify(Array.isArray(v) ? v : []);
+  await db.query(
+    'INSERT INTO kp (id, grade, title, versions, tags, summary) VALUES (?,?,?,?,?,?) ' +
+    'ON DUPLICATE KEY UPDATE grade=VALUES(grade), title=VALUES(title), versions=VALUES(versions), tags=VALUES(tags), summary=VALUES(summary)',
+    [String(k.id).trim(), k.grade || '', String(k.title).trim(), j(k.versions), j(k.tags), k.summary || '']
+  );
+  return { ok: true, id: k.id };
+}
+async function deleteKP(db, id, force) {
+  const [[c]] = await db.query('SELECT COUNT(*) AS n FROM question WHERE kp = ?', [id]);
+  const n = Number(c.n || 0);
+  if (n > 0 && !force) return { ok: false, error: '该分类下还有 ' + n + ' 道题目，请先移走题目或确认强制删除', questions: n };
+  if (n > 0) await db.query('DELETE FROM question WHERE kp = ?', [id]);
+  await db.query('DELETE FROM mastery_scores WHERE kp = ?', [id]);
+  const [r] = await db.query('DELETE FROM kp WHERE id = ?', [id]);
+  return { ok: r.affectedRows > 0, removedQuestions: n };
+}
+
 /* ---------- 题目增删改（管理端） ---------- */
 async function deleteQuestion(db, id) {
   const [r] = await db.query('DELETE FROM question WHERE id = ?', [id]);
@@ -401,8 +460,9 @@ module.exports = {
   hashQ, normText, loadKP,
   seedKP, upsert, query, stats, toObj,
   saveAttempt, listAttempts, saveUser, listUsers,
+  getUser, updateUser, deleteUser, saveAvatar,
   deleteQuestion, getQuestion, updateQuestion,
-  listKP, countKP, getSetting, setSetting, purgeDemo,
+  listKP, upsertKP, deleteKP, countKP, getSetting, setSetting, purgeDemo,
   masteryOf, targetDifficulty, bumpMastery, listMastery, recommend,
   hashPwd, registerUser, verifyUser
 };

@@ -234,9 +234,27 @@ async function handleApi(req, res, url, parsed) {
   if (p === '/me' && req.method === 'GET') {
     const token = q.get('token') || '';
     if (!token) return send(res, 401, { error: '缺少 token' });
-    const [rows] = await db.query('SELECT id, username, grade, version, nickname, phone, school FROM user WHERE id = ? LIMIT 1', [token]);
+    const [rows] = await db.query('SELECT id, username, grade, version, nickname, phone, school, avatar FROM user WHERE id = ? LIMIT 1', [token]);
     if (!rows.length) return send(res, 401, { error: '登录状态已失效' });
     return send(res, 200, { ok: true, user: rows[0] });
+  }
+  /* 头像上传：前端压缩为 data URL（≤300KB）后入库，token 即用户 id */
+  if (p === '/me/avatar' && req.method === 'POST') {
+    const b = await body(req);
+    const token = b.token || q.get('token') || '';
+    if (!token) return send(res, 401, { error: '缺少 token' });
+    const d = String(b.dataUrl || '');
+    if (!/^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/.test(d)) {
+      return send(res, 400, { ok: false, error: '仅支持 png / jpg / webp 图片' });
+    }
+    if (d.length > 400 * 1024) return send(res, 413, { ok: false, error: '头像过大（上限约 300KB），请换小图' });
+    const r = await store.saveAvatar(db, token, d);
+    return send(res, r.ok ? 200 : 400, r);
+  }
+  if (p === '/me/avatar' && req.method === 'DELETE') {
+    const token = q.get('token') || '';
+    if (!token) return send(res, 401, { error: '缺少 token' });
+    return send(res, 200, await store.saveAvatar(db, token, null));
   }
 
   if (p === '/demo/reset' && req.method === 'POST') {
@@ -256,6 +274,39 @@ async function handleApi(req, res, url, parsed) {
   if (p === '/users' && req.method === 'GET') {
     if (!isAdmin(req)) return send(res, 401, { error: '需要管理令牌' });
     return send(res, 200, { items: await store.listUsers(db) });
+  }
+  /* ---------- 用户管理：编辑 / 删除（管理端） ---------- */
+  if (p.startsWith('/users/') && req.method === 'PUT') {
+    if (!isAdmin(req)) return send(res, 401, { error: '需要管理令牌' });
+    const id = decodeURIComponent(p.slice('/users/'.length));
+    const b = await body(req);
+    const r = await store.updateUser(db, id, b);
+    return send(res, r.ok ? 200 : 400, r);
+  }
+  if (p.startsWith('/users/') && req.method === 'DELETE') {
+    if (!isAdmin(req)) return send(res, 401, { error: '需要管理令牌' });
+    const id = decodeURIComponent(p.slice('/users/'.length));
+    const r = await store.deleteUser(db, id);
+    return send(res, r.ok ? 200 : 404, r);
+  }
+
+  /* ---------- 分类（知识点）管理：增删改（管理端） ---------- */
+  if (p === '/kp' && req.method === 'POST') {
+    if (!isAdmin(req)) return send(res, 401, { error: '需要管理令牌' });
+    const b = await body(req);
+    const r = await store.upsertKP(db, b);
+    return send(res, r.ok ? 200 : 400, r);
+  }
+  if (p.startsWith('/kp/') && (req.method === 'PUT' || req.method === 'DELETE')) {
+    if (!isAdmin(req)) return send(res, 401, { error: '需要管理令牌' });
+    const id = decodeURIComponent(p.slice('/kp/'.length));
+    if (req.method === 'PUT') {
+      const b = await body(req);
+      const r = await store.upsertKP(db, Object.assign({ id }, b));
+      return send(res, r.ok ? 200 : 400, r);
+    }
+    const r = await store.deleteKP(db, id, q.get('force') === '1');
+    return send(res, r.ok ? 200 : 409, r);
   }
 
   if (p === '/import' && req.method === 'POST') {

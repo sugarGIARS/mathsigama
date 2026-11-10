@@ -6,7 +6,52 @@
     if (!u) return;
 
     /* 资料卡 */
-    $('#p-avatar').textContent = u.avatarText || (u.nickname || u.username).slice(0, 1);
+    function renderAvatar() {
+      const el = $('#p-avatar');
+      if (u.avatar) el.innerHTML = '<img src="' + u.avatar + '" alt="头像" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">';
+      else el.textContent = u.avatarText || (u.nickname || u.username).slice(0, 1);
+    }
+    renderAvatar();
+
+    /* ---------- 头像上传：本地压缩为 128×128 data URL → 入库（user.avatar） ---------- */
+    $('#p-avatar').addEventListener('click', () => $('#p-avatar-file').click());
+    $('#p-avatar-file').addEventListener('change', e => {
+      const f = e.target.files[0];
+      e.target.value = '';
+      if (!f) return;
+      if (!/^image\/(png|jpe?g|webp)$/.test(f.type)) { toast('仅支持 PNG / JPG / WebP 图片', 'error'); return; }
+      const rd = new FileReader();
+      rd.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          /* 压缩到 128×128 方形（cover 裁剪），显著减小入库体积 */
+          const s = 128;
+          const cv = document.createElement('canvas');
+          cv.width = s; cv.height = s;
+          const cx = cv.getContext('2d');
+          const r = Math.max(s / img.width, s / img.height);
+          const w = img.width * r, h = img.height * r;
+          cx.drawImage(img, (s - w) / 2, (s - h) / 2, w, h);
+          const dataUrl = cv.toDataURL('image/jpeg', 0.85);
+          renderPreview(dataUrl);
+        };
+        img.onerror = () => toast('图片读取失败', 'error');
+        img.src = String(rd.result);
+      };
+      rd.readAsDataURL(f);
+    });
+
+    function renderPreview(dataUrl) {
+      $('#p-avatar').innerHTML = '<img src="' + dataUrl + '" alt="头像" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">';
+      Store.Account.update({ avatar: dataUrl });
+      /* token 即后端 user.id（登录/注册时写入 localStorage） */
+      const token = localStorage.getItem('ms_token') || '';
+      DB.uploadAvatar(dataUrl, token).then(r => {
+        if (r && r.ok) toast('头像已更新并保存到数据库', 'success');
+        else if (r === null) toast('头像已保存到本地（后端未启动，未同步数据库）', 'warn');
+        else toast('保存到数据库失败：' + ((r && r.error) || '请重新登录后重试'), 'error');
+      }).catch(() => toast('头像已保存到本地（网络错误）', 'warn'));
+    }
     $('#p-name').textContent = (u.nickname || u.username) + ' 同学';
     $('#p-grade').textContent = gradeName(u.grade);
     $('#p-version').textContent = u.version || '人教版';

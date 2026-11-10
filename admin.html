@@ -67,6 +67,7 @@
       <nav class="adm-nav">
         <button class="on" data-pane="overview">数据概览</button>
         <button data-pane="bank">题库管理</button>
+        <button data-pane="kp">分类管理</button>
         <button data-pane="io">导入 / 导出</button>
         <button data-pane="ai">AI 接口（DeepSeek）</button>
         <button data-pane="users">用户与记录</button>
@@ -177,12 +178,31 @@
             </div>
           </div>
           <div class="card" style="padding:22px;margin-bottom:16px">
-            <h3 style="margin-bottom:12px;font-size:16px">用户</h3>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px;flex-wrap:wrap">
+              <h3 style="font-size:16px;margin:0">用户管理</h3>
+              <button class="btn btn-primary btn-sm" id="u-add">新增用户</button>
+            </div>
+            <p style="font-size:13px;color:var(--text-3);margin:-6px 0 12px">删除用户会同时清理其答题记录与掌握度数据；编辑可改昵称 / 年级 / 教材版本 / 手机号 / 学校，留空密码表示不修改。</p>
             <div id="user-table"></div>
           </div>
           <div class="card" style="padding:22px">
             <h3 style="margin-bottom:12px;font-size:16px">最近答题记录</h3>
             <div id="attempt-table"></div>
+          </div>
+        </div>
+
+        <!-- 分类管理 -->
+        <div class="adm-pane" id="pane-kp">
+          <div class="card" style="padding:18px;margin-bottom:16px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px;flex-wrap:wrap">
+              <h3 style="font-size:16px;margin:0">知识点分类</h3>
+              <div style="display:flex;gap:8px">
+                <select class="select" id="k-grade-filter"><option value="">全部年级</option></select>
+                <button class="btn btn-primary btn-sm" id="k-add">新增分类</button>
+              </div>
+            </div>
+            <p style="font-size:13px;color:var(--text-3);margin:-6px 0 12px">分类即知识点（kp 表）。删除分类时若其下仍有题目会先提示确认，强制删除会一并移除题目与相关掌握度记录。修改分类后，题库管理页的下拉选项会同步刷新。</p>
+            <div id="kp-table"></div>
           </div>
         </div>
       </div>
@@ -205,6 +225,53 @@
     <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">
       <button class="btn btn-ghost btn-sm" id="e-cancel">取消</button>
       <button class="btn btn-primary btn-sm" id="e-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 用户编辑弹窗 -->
+<div id="user-modal" style="display:none;position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.45);padding:24px;overflow:auto">
+  <div class="card" style="max-width:560px;margin:60px auto;padding:24px">
+    <h3 style="margin-bottom:16px;font-size:17px" id="user-modal-title">编辑用户</h3>
+    <div class="adm-form">
+      <div><label>用户名（唯一）</label><input class="input" id="u-username"></div>
+      <div><label>昵称</label><input class="input" id="u-nickname"></div>
+      <div>
+        <label>年级</label>
+        <select class="select" id="u-grade"></select>
+      </div>
+      <div>
+        <label>教材版本</label>
+        <select class="select" id="u-version"></select>
+      </div>
+      <div><label>手机号</label><input class="input" id="u-phone" placeholder="选填"></div>
+      <div><label>学校</label><input class="input" id="u-school" placeholder="选填"></div>
+      <div style="grid-column:1/-1"><label>重置密码</label><input class="input" id="u-pwd" type="password" placeholder="留空表示不修改"></div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" id="u-cancel">取消</button>
+      <button class="btn btn-primary btn-sm" id="u-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 分类编辑弹窗 -->
+<div id="kp-modal" style="display:none;position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.45);padding:24px;overflow:auto">
+  <div class="card" style="max-width:560px;margin:60px auto;padding:24px">
+    <h3 style="margin-bottom:16px;font-size:17px" id="kp-modal-title">编辑分类</h3>
+    <div class="adm-form">
+      <div><label>分类 ID（如 g7-01，创建后不可改）</label><input class="input" id="k-id" placeholder="g7-01"></div>
+      <div>
+        <label>年级</label>
+        <select class="select" id="k-grade"></select>
+      </div>
+      <div style="grid-column:1/-1"><label>分类名称</label><input class="input" id="k-title" placeholder="例如：有理数及其运算"></div>
+      <div style="grid-column:1/-1"><label>适用教材版本（逗号分隔）</label><input class="input" id="k-versions" placeholder="人教版,北师大版"></div>
+      <div style="grid-column:1/-1"><label>简介</label><textarea class="textarea" id="k-summary" rows="2"></textarea></div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" id="k-cancel">取消</button>
+      <button class="btn btn-primary btn-sm" id="k-save">保存</button>
     </div>
   </div>
 </div>

@@ -37,7 +37,11 @@
     <!-- 资料卡 -->
     <div class="card" style="padding:26px;margin-bottom:22px">
       <div class="profile-head">
-        <div class="avatar-lg" id="p-avatar">王</div>
+        <div style="position:relative;display:inline-block">
+          <div class="avatar-lg" id="p-avatar" style="cursor:pointer" title="点击更换头像">王</div>
+          <span style="position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);font-size:11px;color:var(--text-3);white-space:nowrap">点击换头像</span>
+          <input type="file" id="p-avatar-file" accept="image/png,image/jpeg,image/webp" style="display:none">
+        </div>
         <div style="flex:1;min-width:220px">
           <h2 style="margin-bottom:6px" id="p-name">同学</h2>
           <div style="display:flex;gap:8px;flex-wrap:wrap">

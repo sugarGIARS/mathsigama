@@ -88,6 +88,20 @@ const DB = (function () {
     },
     async attempts(limit) { return (await req('/attempts?limit=' + (limit || 50))).items || []; },
     async users() { return (await req('/users')).items || []; },
+    async saveUser(u) { return req('/users', { method: 'POST', body: u }); },
+    async updateUser(id, patch) { return req('/users/' + encodeURIComponent(id), { method: 'PUT', body: patch }); },
+    async deleteUser(id) { return req('/users/' + encodeURIComponent(id), { method: 'DELETE' }); },
+
+    async saveKp(k) { return req('/kp', { method: 'POST', body: k }); },
+    async deleteKp(id, force) { return req('/kp/' + encodeURIComponent(id) + (force ? '?force=1' : ''), { method: 'DELETE' }); },
+    async uploadAvatar(dataUrl, userToken) {
+      if (!(await ready())) return null;
+      return req('/me/avatar', { method: 'POST', body: { dataUrl, token: userToken } });
+    },
+    async removeAvatar(userToken) {
+      if (!(await ready())) return null;
+      return req('/me/avatar?token=' + encodeURIComponent(userToken || ''), { method: 'DELETE' });
+    },
 
     async aiStatus() {
       if (await ready()) { try { return await req('/ai/status'); } catch (e) { } }

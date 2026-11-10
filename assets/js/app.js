@@ -66,7 +66,9 @@ function renderNav(active) {
         <button class="icon-btn" id="btn-music" title="配乐播放器">${ICON.music}</button>
         <button class="icon-btn nav-toggle" id="btn-menu" title="菜单">${ICON.menu}</button>
         ${u ? `<a class="nav-user" href="profile.html" data-link>
-            <span class="avatar">${esc(u.avatarText || u.username.slice(0, 1).toUpperCase())}</span>
+            <span class="avatar">${u.avatar
+              ? `<img src="${u.avatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`
+              : esc(u.avatarText || u.username.slice(0, 1).toUpperCase())}</span>
             <span class="nav-user-name">${esc(u.nickname || u.username)}</span>
           </a>
           <button class="icon-btn" id="btn-logout" title="退出登录">${ICON.logout}</button>`
